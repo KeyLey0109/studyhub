@@ -1,13 +1,15 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'post_event.dart';
 import 'post_state.dart';
+
+// Import Entities và UseCases từ tầng Domain
+import '../../domain/entities/post_entity.dart';
 import '../../domain/usecases/get_post_usecase.dart';
 import '../../domain/usecases/create_post_usecase.dart';
-import '../../domain/entities/post_entity.dart';
+
+// Import các dependencies từ các features khác
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
-
-// Import để nhận diện CommentEntity
 import '../../../comment/domain/entities/comment_entity.dart';
 
 class PostBloc extends Bloc<PostEvent, PostState> {
@@ -20,119 +22,139 @@ class PostBloc extends Bloc<PostEvent, PostState> {
     required this.createPostUseCase,
     required this.authBloc,
   }) : super(PostInitial()) {
+    // Đăng ký các sự kiện
+    on<LoadPosts>(_onLoadPosts);
+    on<CreatePostRequested>(_onCreatePost);
+    on<ToggleLike>(_onToggleLike);
+    on<AddComment>(_onAddComment);
+    on<UpdatePost>(_onUpdatePost);
+    on<DeletePost>(_onDeletePost);
+  }
 
-    // 1. Tải danh sách bài viết
-    on<LoadPosts>((event, emit) async {
-      emit(PostLoading());
-      final result = await getPostsUseCase();
-      result.fold(
-            (failure) => emit(PostError(message: failure)),
-            (posts) => emit(PostLoaded(posts: posts)),
-      );
-    });
+  /// Helper để lấy thông tin người dùng hiện tại từ AuthBloc
+  AuthSuccess? get _currentAuth {
+    final authState = authBloc.state;
+    return authState is AuthSuccess ? authState : null;
+  }
 
-    // 2. Xử lý đăng bài: Tận dụng trạng thái isCreating đã thêm ở PostState
-    on<CreatePostRequested>((event, emit) async {
-      final currentState = state;
-      if (currentState is PostLoaded) {
-        emit(currentState.copyWith(isCreating: true)); // Hiện thanh loading nhỏ
-      }
+  /// Xử lý tải danh sách bài viết
+  Future<void> _onLoadPosts(LoadPosts event, Emitter<PostState> emit) async {
+    emit(PostLoading());
+    final result = await getPostsUseCase();
 
-      final result = await createPostUseCase(
-        content: event.content,
-        image: event.image,
-        video: event.video,
-        userName: event.userName ?? "Sinh viên",
-      );
+    result.fold(
+          (failure) => emit(PostError(message: failure.toString())),
+          (posts) => emit(PostLoaded(posts: posts)),
+    );
+  }
 
-      result.fold(
-            (failure) {
-          if (state is PostLoaded) {
-            emit((state as PostLoaded).copyWith(isCreating: false));
+  /// Xử lý tạo bài viết mới
+  Future<void> _onCreatePost(CreatePostRequested event, Emitter<PostState> emit) async {
+    final user = _currentAuth?.user;
+    if (user == null) return;
+
+    // Hiển thị trạng thái đang tạo trên UI (nếu đang ở màn hình danh sách)
+    if (state is PostLoaded) {
+      emit((state as PostLoaded).copyWith(isCreating: true));
+    }
+
+    final result = await createPostUseCase(
+      content: event.content,
+      image: event.image,
+      video: event.video,
+      userName: user.name,
+    );
+
+    result.fold(
+          (failure) {
+        if (state is PostLoaded) {
+          emit((state as PostLoaded).copyWith(isCreating: false));
+        }
+        emit(PostError(message: failure.toString()));
+      },
+          (_) => add(const LoadPosts()), // Tải lại danh sách sau khi tạo thành công
+    );
+  }
+
+  /// Xử lý Like/Unlike bài viết (Cập nhật tức thì trên UI)
+  Future<void> _onToggleLike(ToggleLike event, Emitter<PostState> emit) async {
+    final currentState = state;
+    final user = _currentAuth?.user;
+
+    if (currentState is PostLoaded && user != null) {
+      final String userId = user.id;
+
+      final List<PostEntity> updatedPosts = currentState.posts.map((post) {
+        if (post.id == event.postId) {
+          // Tạo bản sao mới của danh sách likes để kích hoạt Equatable
+          final List<String> newLikedByUsers = List<String>.from(post.likedByUsers);
+
+          if (newLikedByUsers.contains(userId)) {
+            newLikedByUsers.remove(userId);
+          } else {
+            newLikedByUsers.add(userId);
           }
-          emit(PostError(message: failure));
-        },
-            (_) => add(const LoadPosts()),
-      );
-    });
 
-    // 3. Xử lý Like/Unlike: Kiểm tra kỹ trạng thái đăng nhập
-    on<ToggleLike>((event, emit) {
-      final authState = authBloc.state;
-      if (authState is AuthSuccess && state is PostLoaded) {
-        final String currentUserId = authState.user.id;
-        final List<PostEntity> currentPosts = (state as PostLoaded).posts;
+          return post.copyWith(likedByUsers: newLikedByUsers);
+        }
+        return post;
+      }).toList();
 
-        final updatedPosts = currentPosts.map((post) {
-          if (post.id == event.postId) {
-            List<String> newLikedByUsers = List.from(post.likedByUsers);
-            if (newLikedByUsers.contains(currentUserId)) {
-              newLikedByUsers.remove(currentUserId);
-            } else {
-              newLikedByUsers.add(currentUserId);
-            }
-            return post.copyWith(likedByUsers: newLikedByUsers);
-          }
-          return post;
-        }).toList();
+      emit(currentState.copyWith(posts: updatedPosts));
 
-        emit(PostLoaded(posts: updatedPosts));
-      } else if (authState is! AuthSuccess) {
-        // Nếu chưa đăng nhập thành công, phát lỗi cảnh báo
-        emit(const PostError(message: "Bạn cần đăng nhập để thực hiện chức năng này!"));
-      }
-    });
+      // Chỗ này Việt có thể gọi thêm UseCase để lưu trạng thái Like vào Database/Local
+    }
+  }
 
-    // 4. Xử lý Bình luận: Lấy User trực tiếp từ AuthBloc để tránh lỗi "nhầm" trạng thái
-    on<AddComment>((event, emit) {
-      final authState = authBloc.state;
-      final currentState = state;
+  /// Xử lý thêm bình luận mới
+  Future<void> _onAddComment(AddComment event, Emitter<PostState> emit) async {
+    final currentState = state;
+    final user = _currentAuth?.user;
 
-      if (authState is AuthSuccess && currentState is PostLoaded) {
-        final List<PostEntity> currentPosts = currentState.posts;
+    if (currentState is PostLoaded && user != null) {
+      final List<PostEntity> updatedPosts = currentState.posts.map((post) {
+        if (post.id == event.postId) {
+          final newComment = CommentEntity(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            userId: user.id,
+            userName: user.name,
+            content: event.commentContent,
+            timestamp: DateTime.now(),
+            replies: const [],
+          );
 
-        final updatedPosts = currentPosts.map((post) {
-          if (post.id == event.postId) {
-            final newComment = CommentEntity(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              userId: authState.user.id,
-              userName: authState.user.name,
-              content: event.commentContent,
-              timestamp: DateTime.now(),
-              replies: const [],
-            );
+          // Cập nhật danh sách bình luận bằng cách tạo List mới
+          final List<CommentEntity> updatedComments =
+          List<CommentEntity>.from(post.comments)..add(newComment);
 
-            final updatedComments = List<CommentEntity>.from(post.comments)..add(newComment);
-            return post.copyWith(comments: updatedComments);
-          }
-          return post;
-        }).toList();
+          return post.copyWith(comments: updatedComments);
+        }
+        return post;
+      }).toList();
 
-        emit(PostLoaded(posts: updatedPosts));
-      } else if (authState is! AuthSuccess) {
-        // Fix lỗi: Báo lỗi cụ thể khi AuthBloc không ở trạng thái thành công
-        emit(const PostError(message: "Phiên đăng nhập hết hạn, vui lòng kiểm tra lại!"));
-      }
-    });
+      emit(currentState.copyWith(posts: updatedPosts));
+    }
+  }
 
-    // 5. Cập nhật bài viết thủ công
-    on<UpdatePost>((event, emit) {
-      if (state is PostLoaded) {
-        final List<PostEntity> updatedPosts = (state as PostLoaded).posts.map((post) {
-          return post.id == event.post.id ? event.post : post;
-        }).toList();
-        emit(PostLoaded(posts: updatedPosts));
-      }
-    });
+  /// Cập nhật một bài viết cụ thể
+  void _onUpdatePost(UpdatePost event, Emitter<PostState> emit) {
+    if (state is PostLoaded) {
+      final currentState = state as PostLoaded;
+      final List<PostEntity> updatedPosts = currentState.posts.map((post) {
+        return post.id == event.post.id ? event.post : post;
+      }).toList();
+      emit(currentState.copyWith(posts: updatedPosts));
+    }
+  }
 
-    // 6. Xóa bài viết
-    on<DeletePost>((event, emit) {
-      if (state is PostLoaded) {
-        final updatedPosts = (state as PostLoaded).posts
-            .where((post) => post.id != event.postId)
-            .toList();
-        emit(PostLoaded(posts: updatedPosts));
-      }
-    });
+  /// Xóa bài viết khỏi danh sách hiển thị
+  void _onDeletePost(DeletePost event, Emitter<PostState> emit) {
+    if (state is PostLoaded) {
+      final currentState = state as PostLoaded;
+      final List<PostEntity> updatedPosts = currentState.posts
+          .where((post) => post.id != event.postId)
+          .toList();
+      emit(currentState.copyWith(posts: updatedPosts));
+    }
   }
 }

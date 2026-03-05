@@ -1,6 +1,7 @@
-import '../../domain/entities/post_entity.dart';
-import '../../../comment/data/models/comment_model.dart';
-import '../../../comment/domain/entities/comment_entity.dart';
+import 'package:appstudyhub/features/post/domain/entities/post_entity.dart';
+import 'package:appstudyhub/features/comment/data/models/comment_model.dart';
+// Import này cực kỳ quan trọng để định nghĩa kiểu dữ liệu trong hàm map, giúp hết lỗi Unused
+import 'package:appstudyhub/features/comment/domain/entities/comment_entity.dart';
 
 class PostModel extends PostEntity {
   const PostModel({
@@ -14,27 +15,26 @@ class PostModel extends PostEntity {
     super.comments,
   });
 
-  // Chuyển đổi từ JSON (đọc từ SharedPreferences) sang Model
+  /// Chuyển đổi từ JSON (Map) sang PostModel
   factory PostModel.fromJson(Map<String, dynamic> json) {
     return PostModel(
-      id: json['id'] as String,
-      userName: json['userName'] as String,
-      content: json['content'] as String,
+      id: json['id'] as String? ?? '',
+      userName: json['userName'] as String? ?? 'Người dùng',
+      content: json['content'] as String? ?? '',
       imagePath: json['imagePath'] as String?,
       videoPath: json['videoPath'] as String?,
-      // Chuyển đổi chuỗi ISO sang DateTime
-      timestamp: DateTime.parse(json['timestamp'] as String),
-
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : DateTime.now(),
       likedByUsers: List<String>.from(json['likedByUsers'] ?? []),
-
-      // QUAN TRỌNG: Biến đổi từng phần tử JSON thành CommentModel (đệ quy)
+      // Ép kiểu danh sách comments sang CommentModel ngay từ khi load dữ liệu
       comments: (json['comments'] as List? ?? [])
           .map((e) => CommentModel.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
 
-  // Chuyển đổi từ Model sang JSON để lưu xuống máy
+  /// Chuyển đổi PostModel sang JSON (Map) để lưu vào SharedPreferences
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -42,15 +42,18 @@ class PostModel extends PostEntity {
       'content': content,
       'imagePath': imagePath,
       'videoPath': videoPath,
-      'timestamp': timestamp.toIso8601String(), // Lưu dạng chuỗi để dễ đọc lại
+      'timestamp': timestamp.toIso8601String(),
       'likedByUsers': likedByUsers,
-
-      // Biến đổi danh sách CommentEntity thành JSON
-      'comments': comments.map((e) => (e as CommentModel).toJson()).toList(),
+      // Sử dụng CommentEntity e để giữ import hợp lệ và xóa lỗi Unused
+      'comments': comments.map((CommentEntity e) {
+        if (e is CommentModel) return e.toJson();
+        return CommentModel.fromEntity(e).toJson();
+      }).toList(),
     };
   }
 
-  // Chuyển đổi từ Entity (Tầng Domain) sang Model (Tầng Data)
+  /// Chuyển đổi từ PostEntity sang PostModel (Dùng trong Repository/Bloc)
+  /// Đây là hàm quan trọng nhất để dứt điểm lỗi "subtype" màn hình đỏ
   factory PostModel.fromEntity(PostEntity entity) {
     return PostModel(
       id: entity.id,
@@ -60,7 +63,11 @@ class PostModel extends PostEntity {
       videoPath: entity.videoPath,
       timestamp: entity.timestamp,
       likedByUsers: entity.likedByUsers,
-      comments: entity.comments,
+      // Duyệt danh sách và đảm bảo mọi phần tử đều là Model trước khi trả về
+      comments: entity.comments.map<CommentModel>((CommentEntity e) {
+        if (e is CommentModel) return e;
+        return CommentModel.fromEntity(e);
+      }).toList(),
     );
   }
 }

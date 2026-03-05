@@ -1,19 +1,16 @@
 import 'package:equatable/equatable.dart';
-// 1. Import CommentEntity từ feature comment mới tạo
 import '../../../comment/domain/entities/comment_entity.dart';
 
+/// [PostEntity] đại diện cho dữ liệu bài viết tại tầng Domain.
+/// Tách biệt logic nghiệp vụ khỏi các chi tiết thực thi ở tầng Data.
 class PostEntity extends Equatable {
   final String id;
   final String userName;
   final String content;
   final String? imagePath;
   final String? videoPath;
-  final DateTime timestamp; // Chuyển sang DateTime để dễ định dạng ngày tháng
-
-  // 2. Danh sách các UserId đã Like bài viết này
+  final DateTime timestamp;
   final List<String> likedByUsers;
-
-  // 3. QUAN TRỌNG: Đổi từ List<String> sang List<CommentEntity>
   final List<CommentEntity> comments;
 
   const PostEntity({
@@ -27,13 +24,16 @@ class PostEntity extends Equatable {
     this.comments = const [],
   });
 
-  // Getter tính tổng số Like
+  // --- GETTERS TIỆN ÍCH ---
+
   int get likeCount => likedByUsers.length;
-
-  // Kiểm tra xem sinh viên hiện tại đã Like chưa
+  int get commentCount => comments.length;
   bool isLikedBy(String userId) => likedByUsers.contains(userId);
+  bool get hasImage => imagePath != null && imagePath!.isNotEmpty;
+  bool get hasVideo => videoPath != null && videoPath!.isNotEmpty;
 
-  // Hàm tạo bản sao để BLoC cập nhật trạng thái mới
+  // --- PHƯƠNG THỨC SAO CHÉP ---
+
   PostEntity copyWith({
     String? id,
     String? userName,
@@ -42,7 +42,7 @@ class PostEntity extends Equatable {
     String? videoPath,
     DateTime? timestamp,
     List<String>? likedByUsers,
-    List<CommentEntity>? comments, // Cập nhật kiểu dữ liệu ở đây
+    List<CommentEntity>? comments,
   }) {
     return PostEntity(
       id: id ?? this.id,
@@ -51,8 +51,9 @@ class PostEntity extends Equatable {
       imagePath: imagePath ?? this.imagePath,
       videoPath: videoPath ?? this.videoPath,
       timestamp: timestamp ?? this.timestamp,
-      likedByUsers: likedByUsers ?? this.likedByUsers,
-      comments: comments ?? this.comments,
+      // Sử dụng List.from để ép buộc tạo vùng nhớ mới, giúp Bloc nhận diện thay đổi
+      likedByUsers: likedByUsers ?? List<String>.from(this.likedByUsers),
+      comments: comments ?? List<CommentEntity>.from(this.comments),
     );
   }
 

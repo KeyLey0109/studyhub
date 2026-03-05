@@ -20,6 +20,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _bioController;
+  late TextEditingController _emailController; // Thêm controller cho email
   DateTime? _selectedDate;
   File? _imageFile;
   final _picker = ImagePicker();
@@ -29,6 +30,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     _nameController = TextEditingController(text: widget.profile.userName);
     _bioController = TextEditingController(text: widget.profile.bio ?? "");
+    _emailController = TextEditingController(text: widget.profile.email);
     _selectedDate = widget.profile.birthDate;
   }
 
@@ -36,6 +38,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _bioController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -51,7 +54,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Chỉnh sửa trang cá nhân", style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
+        title: const Text("Chỉnh sửa trang cá nhân",
+            style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
@@ -70,23 +74,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               );
             },
-            child: const Text("LƯU", style: TextStyle(color: Color(0xFF1877F2), fontWeight: FontWeight.bold, fontSize: 16)),
+            child: const Text("LƯU",
+                style: TextStyle(color: Color(0xFF1877F2), fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       ),
       body: BlocListener<ProfileBloc, ProfileState>(
         listener: (context, state) {
           if (state is ProfileUpdateSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đã cập nhật thông tin cá nhân")));
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Đã cập nhật thông tin cá nhân")));
             Navigator.pop(context);
           } else if (state is ProfileError) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(state.message), backgroundColor: Colors.red));
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.message), backgroundColor: Colors.red));
           }
         },
         child: SingleChildScrollView(
           child: Column(
             children: [
               const SizedBox(height: 20),
+
               // --- PHẦN 1: ẢNH ĐẠI DIỆN ---
               _buildSectionTitle("Ảnh đại diện", _pickImage),
               Center(
@@ -100,9 +108,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: CircleAvatar(
                         radius: 70,
                         backgroundColor: Colors.grey[100],
+                        // Sửa lỗi ép kiểu: ImageProvider không dùng const ở đây
                         backgroundImage: _imageFile != null
-                            ? FileImage(_imageFile!) as ImageProvider
-                            : (widget.profile.avatarUrl != null ? NetworkImage(widget.profile.avatarUrl!) : null),
+                            ? FileImage(_imageFile!)
+                            : (widget.profile.avatarUrl != null
+                            ? NetworkImage(widget.profile.avatarUrl!) as ImageProvider
+                            : null),
                         child: _imageFile == null && widget.profile.avatarUrl == null
                             ? Icon(Icons.person, size: 70, color: Colors.grey[400])
                             : null,
@@ -114,7 +125,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: CircleAvatar(
                         backgroundColor: Colors.grey[200],
                         radius: 18,
-                        child: Icon(Icons.camera_alt, size: 20, color: Colors.black87),
+                        child: const Icon(Icons.camera_alt, size: 20, color: Colors.black87),
                       ),
                     ),
                   ],
@@ -135,7 +146,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(height: 20),
                     _buildCustomTextField(
-                      controller: TextEditingController(text: widget.profile.email),
+                      controller: _emailController,
                       label: "Email (Không thể thay đổi)",
                       icon: Icons.email_outlined,
                       readOnly: true,
@@ -158,7 +169,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     hintText: "Mô tả về bản thân bạn...",
                     filled: true,
                     fillColor: Colors.grey[50],
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none),
                   ),
                 ),
               ),
@@ -178,13 +191,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         children: [
           Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           if (onAction != null)
-            TextButton(onPressed: onAction, child: const Text("Chỉnh sửa", style: TextStyle(color: Color(0xFF1877F2)))),
+            TextButton(
+                onPressed: onAction,
+                child: const Text("Chỉnh sửa", style: TextStyle(color: Color(0xFF1877F2)))
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomTextField({required TextEditingController controller, required String label, required IconData icon, bool readOnly = false}) {
+  Widget _buildCustomTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool readOnly = false
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -195,7 +216,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           readOnly: readOnly,
           style: TextStyle(color: readOnly ? Colors.grey : Colors.black),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Color(0xFF1877F2)),
+            prefixIcon: Icon(icon, color: const Color(0xFF1877F2)),
             enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
             focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1877F2))),
           ),

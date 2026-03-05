@@ -20,12 +20,13 @@ import 'features/auth/presentation/pages/login_page.dart';
 import 'features/post/presentation/pages/root_page.dart';
 
 void main() async {
+  // 1. Đảm bảo Flutter binding được khởi tạo
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Khóa hướng màn hình dọc để UI ổn định
+  // 2. Khóa hướng màn hình dọc
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  // Khởi tạo Dependency Injection
+  // 3. Khởi tạo Dependency Injection (GetIt)
   await di.init();
 
   runApp(const MyApp());
@@ -36,19 +37,29 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // MultiBlocProvider giúp các Widget con dễ dàng truy cập logic
     return MultiBlocProvider(
       providers: [
-        // Khởi tạo Auth và check session ngay lập tức
         BlocProvider<AuthBloc>(
           create: (_) => di.sl<AuthBloc>()..add(AppStarted()),
         ),
-        // SỬA LỖI: Thêm dấu ngoặc đơn () để khởi tạo Event object
+
+        // PostBloc nhận AuthBloc để biết "ai" đang tương tác bài viết
         BlocProvider<PostBloc>(
-          create: (_) => di.sl<PostBloc>()..add(const LoadPosts()),
+          create: (context) => di.sl<PostBloc>(
+            param1: BlocProvider.of<AuthBloc>(context),
+          )..add(const LoadPosts()),
         ),
+
+        // ProfileBloc cũng cần AuthBloc để hiển thị thông tin sinh viên tương ứng
+        BlocProvider<ProfileBloc>(
+          create: (context) => di.sl<ProfileBloc>(
+            param1: BlocProvider.of<AuthBloc>(context),
+          ),
+        ),
+
         BlocProvider<CommentBloc>(create: (_) => di.sl<CommentBloc>()),
-        BlocProvider<ProfileBloc>(create: (_) => di.sl<ProfileBloc>()),
-        // SỬA LỖI: Khởi tạo instance của LoadNotifications()
+
         BlocProvider<NotificationBloc>(
           create: (_) => di.sl<NotificationBloc>()..add(const LoadNotifications()),
         ),
@@ -71,22 +82,11 @@ class MyApp extends StatelessWidget {
       ),
       textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
       scaffoldBackgroundColor: const Color(0xFFF0F2F5),
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: Colors.white,
         elevation: 0.5,
         surfaceTintColor: Colors.white,
         centerTitle: false,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        titleTextStyle: GoogleFonts.roboto(
-          color: const Color(0xFF1877F2),
-          fontSize: 26,
-          fontWeight: FontWeight.bold,
-          letterSpacing: -1.2,
-        ),
-      ),
-      dividerTheme: DividerThemeData(
-        thickness: 0.5,
-        color: Colors.grey.withValues(alpha: 0.2),
       ),
     );
   }
@@ -97,18 +97,14 @@ class AuthenticationWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Lắng nghe trạng thái đăng nhập để điều hướng
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         if (state is AuthSuccess) {
           return const RootPage();
         } else if (state is AuthLoading) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1877F2)),
-              ),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
         return const LoginPage();

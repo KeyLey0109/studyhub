@@ -21,7 +21,8 @@ class PostRepositoryImpl implements PostRepository {
   Future<void> _ensurePostsLoaded() async {
     if (_postsCache.isEmpty) {
       final cached = await localDataSource.getLastPosts();
-      _postsCache = List.from(cached);
+      // Chuyển đổi dữ liệu sang PostModel tường minh
+      _postsCache = List<PostModel>.from(cached);
     }
   }
 
@@ -29,10 +30,10 @@ class PostRepositoryImpl implements PostRepository {
   Future<Either<String, List<PostEntity>>> getPosts() async {
     try {
       final cachedPosts = await localDataSource.getLastPosts();
+
       if (cachedPosts.isNotEmpty) {
-        _postsCache = List.from(cachedPosts);
+        _postsCache = List<PostModel>.from(cachedPosts);
       } else if (_postsCache.isEmpty) {
-        // Khởi tạo bài đăng mặc định cho sinh viên PYU
         _postsCache = [
           PostModel(
             id: '1',
@@ -45,7 +46,9 @@ class PostRepositoryImpl implements PostRepository {
         ];
         await localDataSource.cachePosts(_postsCache);
       }
-      return Right(_postsCache);
+
+      // SỬA LỖI TẠI ĐÂY: Sử dụng .cast<PostEntity>() để khớp với kiểu trả về của Interface
+      return Right(_postsCache.cast<PostEntity>());
     } catch (e) {
       debugPrint("Lỗi getPosts: $e");
       return const Left("Không thể tải bài viết.");
@@ -92,7 +95,7 @@ class PostRepositoryImpl implements PostRepository {
 
         newList.contains(userId) ? newList.remove(userId) : newList.add(userId);
 
-        // Chuyển đổi qua Model để lưu local an toàn
+        // Chuyển đổi Entity quay ngược lại Model
         _postsCache[index] = PostModel.fromEntity(post.copyWith(likedByUsers: newList));
         await localDataSource.cachePosts(_postsCache);
       }
@@ -117,7 +120,6 @@ class PostRepositoryImpl implements PostRepository {
 
       final post = _postsCache[index];
 
-      // Dứt điểm lỗi TypeError bằng cách dùng Model ngay từ đầu
       final newComment = CommentModel(
         id: "cmt_${DateTime.now().millisecondsSinceEpoch}",
         userId: userId,
@@ -133,7 +135,8 @@ class PostRepositoryImpl implements PostRepository {
         newComment,
       );
 
-      // Cập nhật RAM và lưu xuống máy
+      // SỬA LỖI TẠI ĐÂY: Dùng PostModel.fromEntity để đảm bảo danh sách comments
+      // bên trong cũng được chuyển thành Model trước khi cache
       _postsCache[index] = PostModel.fromEntity(
         post.copyWith(comments: updatedComments),
       );
@@ -146,7 +149,6 @@ class PostRepositoryImpl implements PostRepository {
     }
   }
 
-  // Thuật toán đệ quy chuẩn để cập nhật reply lồng nhau
   List<CommentEntity> _getUpdatedComments(
       List<CommentEntity> currentList,
       String? parentId,

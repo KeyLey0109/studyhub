@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/post_entity.dart';
+import 'package:appstudyhub/features/post/domain/entities/post_entity.dart';
 
 abstract class PostState extends Equatable {
   const PostState();
@@ -11,29 +11,28 @@ abstract class PostState extends Equatable {
 /// 1. Trạng thái khởi tạo
 class PostInitial extends PostState {}
 
-/// 2. Trạng thái tải toàn bộ trang (Dùng khi mới vào app)
+/// 2. Trạng thái đang tải dữ liệu (lần đầu hoặc làm mới toàn bộ)
 class PostLoading extends PostState {}
 
-/// 3. Trạng thái đã tải dữ liệu thành công
+/// 3. Trạng thái quan trọng nhất: Đã tải dữ liệu
+/// Quản lý danh sách bài viết và các trạng thái phụ như đang đăng bài.
 class PostLoaded extends PostState {
   final List<PostEntity> posts;
-
-  // Thêm flag để biết có đang trong quá trình đăng bài mới hay không
-  final bool isCreating;
+  final bool isCreating; // Để hiển thị LinearProgressIndicator khi đang upload
 
   const PostLoaded({
-    required this.posts,
+    this.posts = const [],
     this.isCreating = false,
   });
 
-  // Hỗ trợ cập nhật trạng thái mà không làm mất danh sách bài viết hiện tại
+  /// Phương thức copyWith giúp cập nhật từng phần của State mà không mất dữ liệu cũ
   PostLoaded copyWith({
     List<PostEntity>? posts,
     bool? isCreating,
   }) {
     return PostLoaded(
       posts: posts ?? this.posts,
-      isCreating: isCreating ?? this.isCreating, // Sửa ở đây nè!
+      isCreating: isCreating ?? this.isCreating,
     );
   }
 

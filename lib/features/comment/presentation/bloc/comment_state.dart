@@ -7,13 +7,27 @@ abstract class CommentState extends Equatable {
   List<Object?> get props => [];
 }
 
-class CommentInitial extends CommentState {}
+/// Trạng thái ban đầu
+class CommentInitial extends CommentState {
+  const CommentInitial(); // Thêm const ở đây
+}
 
-class CommentLoading extends CommentState {}
+/// Trạng thái đang gửi dữ liệu lên server
+class CommentLoading extends CommentState {
+  const CommentLoading(); // Thêm const ở đây
+}
 
-/// Khi gửi thành công, UI sẽ tự động xóa chữ trong TextField
-class CommentSuccess extends CommentState {}
+/// Khi gửi thành công
+class CommentSuccess extends CommentState {
+  final String? message;
 
+  const CommentSuccess({this.message});
+
+  @override
+  List<Object?> get props => [message];
+}
+
+/// Khi xảy ra lỗi
 class CommentError extends CommentState {
   final String message;
   const CommentError(this.message);
