@@ -3,30 +3,78 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+// --- IMPORT CỰC KỲ QUAN TRỌNG ĐỂ HẾT LỖI GẠCH ĐỎ ---
 import '../bloc/post_bloc.dart';
 import '../bloc/post_event.dart';
 import '../bloc/post_state.dart';
 import '../widgets/post_card.dart';
 
+// Đảm bảo đường dẫn này trỏ đúng đến nơi có LogoutRequested
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 
+// Đảm bảo đường dẫn này trỏ đúng đến nơi có LoadNotifications
+import '../../../notifications/presentation/pages/notification_screen.dart';
+import '../../../notifications/presentation/bloc/notification_bloc.dart';
+import '../../../notifications/presentation/bloc/notification_event.dart';
+import '../../../notifications/presentation/bloc/notification_state.dart';
+
+import '../../../profile/presentation/pages/profile_screen.dart';
+
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  void _showCreatePostSheet(BuildContext context) {
-    final contentController = TextEditingController();
-    final ImagePicker picker = ImagePicker();
+  @override
+  Widget build(BuildContext context) {
+    final authState = context.watch<AuthBloc>().state;
+    final String uName = (authState is AuthSuccess) ? authState.user.name : "Sinh viên";
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF0F2F5),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Thêm const để khớp với định nghĩa trong PostEvent
+          context.read<PostBloc>().add(const LoadPosts());
+          // THÊM CONST Ở ĐÂY ĐỂ HẾT LỖI "ISN'T A CLASS"
+          context.read<NotificationBloc>().add(const LoadNotifications());
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            _buildSliverAppBar(context, authState),
+            SliverToBoxAdapter(child: _buildStatusHeader(context, uName)),
+            _buildCreatingIndicator(),
+            const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            _buildPostList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreatingIndicator() {
+    return BlocBuilder<PostBloc, PostState>(
+      builder: (context, state) {
+        if (state is PostLoaded && state.isCreating) {
+          return const SliverToBoxAdapter(
+            child: LinearProgressIndicator(
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1877F2)),
+              minHeight: 2,
+            ),
+          );
+        }
+        return const SliverToBoxAdapter(child: SizedBox.shrink());
+      },
+    );
+  }
+
+  void _showCreatePostSheet(BuildContext context, String uName) {
+    final TextEditingController controller = TextEditingController();
     File? selectedImage;
     File? selectedVideo;
-
-    // 1. Lấy thông tin user hiện tại từ AuthBloc để gán tên người đăng
-    final authState = context.read<AuthBloc>().state;
-    String currentUserName = "Sinh viên PYU";
-    if (authState is AuthSuccess) {
-      currentUserName = authState.user.name; // Tên thật từ lúc đăng ký
-    }
+    final ImagePicker picker = ImagePicker();
 
     showModalBottomSheet(
       context: context,
@@ -34,186 +82,183 @@ class HomePage extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16, right: 16, top: 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text("Đăng bài với tên: $currentUserName",
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-              const SizedBox(height: 10),
-              TextField(
-                controller: contentController,
-                decoration: const InputDecoration(
-                  hintText: "Bạn đang nghiên cứu gì thế?",
-                  border: InputBorder.none,
-                ),
-                maxLines: 3,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                left: 16, right: 16, top: 16,
               ),
-
-              // Xem trước Ảnh
-              if (selectedImage != null)
-                Stack(
-                  alignment: Alignment.topRight,
-                  children: [
-                    Container(
-                      height: 150,
-                      width: double.infinity,
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(selectedImage!, fit: BoxFit.cover),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text("Tạo bài viết mới", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Divider(),
+                  TextField(
+                    controller: controller,
+                    maxLines: 5,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: "Bạn đang nghiên cứu gì thế?",
+                      border: InputBorder.none,
+                    ),
+                  ),
+                  if (selectedImage != null || selectedVideo != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        selectedImage != null ? "📸 Đã chọn 1 ảnh" : "🎥 Đã chọn 1 video",
+                        style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.cancel, color: Colors.red),
-                      onPressed: () => setSheetState(() => selectedImage = null),
-                    ),
-                  ],
-                ),
-
-              // Xem trước Video
-              if (selectedVideo != null)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Row(
+                  Row(
                     children: [
-                      const Icon(Icons.movie_creation_outlined, color: Colors.blue),
-                      const SizedBox(width: 10),
-                      const Expanded(child: Text("Đã chọn 1 video")),
-                      GestureDetector(
-                        onTap: () => setSheetState(() => selectedVideo = null),
-                        child: const Icon(Icons.cancel, color: Colors.grey),
-                      )
+                      IconButton(
+                        onPressed: () async {
+                          final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                          if (image != null) setModalState(() => selectedImage = File(image.path));
+                        },
+                        icon: const Icon(Icons.photo_library, color: Colors.green),
+                      ),
+                      IconButton(
+                        onPressed: () async {
+                          final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
+                          if (video != null) setModalState(() => selectedVideo = File(video.path));
+                        },
+                        icon: const Icon(Icons.videocam, color: Colors.red),
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (controller.text.trim().isNotEmpty || selectedImage != null || selectedVideo != null) {
+                            context.read<PostBloc>().add(
+                              CreatePostRequested(
+                                content: controller.text.trim(),
+                                userName: uName,
+                                image: selectedImage,
+                                video: selectedVideo,
+                              ),
+                            );
+                            Navigator.pop(context);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1877F2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text("Đăng bài", style: TextStyle(color: Colors.white)),
+                      ),
                     ],
                   ),
-                ),
-
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.photo_library, color: Colors.green),
-                    onPressed: () async {
-                      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                      if (image != null) {
-                        setSheetState(() {
-                          selectedImage = File(image.path);
-                          selectedVideo = null;
-                        });
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.video_call, color: Colors.red),
-                    onPressed: () async {
-                      final XFile? video = await picker.pickVideo(source: ImageSource.gallery);
-                      if (video != null) {
-                        setSheetState(() {
-                          selectedVideo = File(video.path);
-                          selectedImage = null;
-                        });
-                      }
-                    },
-                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
-              const SizedBox(height: 12),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: Colors.blueAccent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () {
-                  final content = contentController.text.trim();
-                  if (content.isNotEmpty || selectedImage != null || selectedVideo != null) {
+            );
+          },
+        );
+      },
+    );
+  }
 
-                    // 2. Truyền userName thật vào Event AddPost
-                    context.read<PostBloc>().add(AddPost(
-                      content: content,
-                      userName: currentUserName,
-                      image: selectedImage,
-                      video: selectedVideo,
-                    ));
+  Widget _buildSliverAppBar(BuildContext context, AuthState authState) {
+    return SliverAppBar(
+      floating: true,
+      elevation: 0.5,
+      backgroundColor: Colors.white,
+      title: const Text(
+        'StudyHub',
+        style: TextStyle(color: Color(0xFF1877F2), fontWeight: FontWeight.bold, fontSize: 28),
+      ),
+      actions: [
+        _buildCircleAction(Icons.search, Colors.black, () {}),
+        _buildNotificationAction(context),
+        _buildUserMenu(context, authState),
+      ],
+    );
+  }
 
-                    Navigator.pop(context);
-                  }
-                },
-                child: const Text("ĐĂNG BÀI",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+  Widget _buildUserMenu(BuildContext context, AuthState authState) {
+    return PopupMenuButton<String>(
+      onSelected: (value) {
+        if (value == 'profile' && authState is AuthSuccess) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(userId: authState.user.id, isCurrentUser: true)));
+        } else if (value == 'logout') {
+          // SỬA DÒNG NÀY ĐỂ HẾT LỖI "ISN'T DEFINED"
+          context.read<AuthBloc>().add(LogoutRequested());
+        }
+      },
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: CircleAvatar(radius: 18, child: Icon(Icons.person)),
+      ),
+      itemBuilder: (context) => [
+        const PopupMenuItem(value: 'profile', child: Text("Trang cá nhân")),
+        const PopupMenuItem(value: 'logout', child: Text("Đăng xuất", style: TextStyle(color: Colors.red))),
+      ],
+    );
+  }
+
+  Widget _buildNotificationAction(BuildContext context) {
+    return BlocBuilder<NotificationBloc, NotificationState>(
+      builder: (context, state) {
+        int count = 0;
+        if (state is NotificationLoaded) count = state.notifications.where((n) => !n.isRead).length;
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            _buildCircleAction(Icons.notifications, Colors.black, () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationScreen()));
+            }),
+            if (count > 0)
+              Positioned(right: 8, top: 8, child: CircleAvatar(radius: 8, backgroundColor: Colors.red, child: Text('$count', style: const TextStyle(fontSize: 10, color: Colors.white)))),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCircleAction(IconData icon, Color color, VoidCallback onTap) {
+    return IconButton(icon: Icon(icon, color: color), onPressed: onTap);
+  }
+
+  Widget _buildStatusHeader(BuildContext context, String userName) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      color: Colors.white,
+      child: Row(
+        children: [
+          const CircleAvatar(child: Icon(Icons.person)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: InkWell(
+              onTap: () => _showCreatePostSheet(context, userName),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFF0F2F5), borderRadius: BorderRadius.circular(20)),
+                child: Text("Bạn đang nghiên cứu gì thế, $userName?"),
               ),
-              const SizedBox(height: 16),
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        title: const Text('StudyHub',
-            style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 24)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-            onPressed: () => context.read<AuthBloc>().add(LogoutRequested()),
-          ),
-        ],
-      ),
-      body: BlocBuilder<PostBloc, PostState>(
-        builder: (context, state) {
-          if (state is PostLoading) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (state is PostLoaded) {
-            if (state.posts.isEmpty) {
-              return const Center(child: Text("Chưa có bài viết nào. Hãy chia sẻ kiến thức nhé!"));
-            }
-            return RefreshIndicator(
-              onRefresh: () async => context.read<PostBloc>().add(const LoadPosts()),
-              child: ListView.builder(
-                padding: const EdgeInsets.only(top: 8),
-                itemCount: state.posts.length,
-                itemBuilder: (context, index) => PostCard(post: state.posts[index]),
-              ),
-            );
-          } else if (state is PostError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Lỗi: ${state.message}', style: const TextStyle(color: Colors.red)),
-                  ElevatedButton(
-                    onPressed: () => context.read<PostBloc>().add(const LoadPosts()),
-                    child: const Text("Tải lại"),
-                  )
-                ],
-              ),
-            );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreatePostSheet(context),
-        label: const Text("Chia sẻ"),
-        icon: const Icon(Icons.add_comment),
-        backgroundColor: Colors.blueAccent,
-      ),
+  Widget _buildPostList() {
+    return BlocBuilder<PostBloc, PostState>(
+      builder: (context, state) {
+        if (state is PostLoading) return const SliverFillRemaining(child: Center(child: CircularProgressIndicator()));
+        if (state is PostLoaded) {
+          return SliverList(
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) => PostCard(post: state.posts[index]),
+              childCount: state.posts.length,
+            ),
+          );
+        }
+        return const SliverFillRemaining(child: Center(child: Text("Lỗi tải dữ liệu")));
+      },
     );
   }
 }

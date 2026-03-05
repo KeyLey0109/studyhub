@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/usecases/login_usecase.dart';
-import '../../domain/usecases/register_usecase.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
+import '../../domain/usecases/login_usecase.dart';
+import '../../domain/usecases/register_usecase.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase loginUseCase;
@@ -13,37 +13,52 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     required this.registerUseCase,
   }) : super(AuthInitial()) {
 
-    // 1. Xử lý Đăng nhập (Đổi từ LoginSubmitted thành LoginRequested)
-    on<LoginRequested>((event, emit) async {
-      emit(AuthLoading()); // Hiển thị vòng xoay chờ
-
-      final result = await loginUseCase(event.email, event.password);
-
-      result.fold(
-            (error) => emit(AuthFailure(error)), // Thông báo lỗi nếu sai pass/email
-            (user) => emit(AuthSuccess(user)),   // Đăng nhập thành công, trả về UserEntity
-      );
+    // 1. Xử lý khởi động App: Fix lỗi màn hình đỏ khi vừa mở app
+    on<AppStarted>((event, emit) async {
+      emit(AuthLoading());
+      // Việt có thể thêm logic kiểm tra Token lưu trong SharedPreferences ở đây
+      await Future.delayed(const Duration(milliseconds: 500));
+      emit(AuthInitial());
     });
 
-    // 2. Xử lý Đăng ký (Đổi từ RegisterSubmitted thành RegisterRequested)
+    // 2. Xử lý Đăng nhập: Sử dụng Positional parameters
+    on<LoginRequested>((event, emit) async {
+      emit(AuthLoading());
+      try {
+        final result = await loginUseCase(event.email, event.password);
+
+        result.fold(
+              (failure) => emit(AuthFailure(failure)),
+              (user) => emit(AuthSuccess(user)),
+        );
+      } catch (e) {
+        emit(AuthFailure("Lỗi hệ thống: ${e.toString()}"));
+      }
+    });
+
+    // 3. Xử lý Đăng ký: Sử dụng Named parameters khớp với RegisterUseCase
     on<RegisterRequested>((event, emit) async {
       emit(AuthLoading());
+      try {
+        final result = await registerUseCase(
+          name: event.name,
+          email: event.email,
+          password: event.password,
+        );
 
-      final result = await registerUseCase(
-        name: event.name,
-        email: event.email,
-        password: event.password,
-      );
-
-      result.fold(
-            (error) => emit(AuthFailure(error)), // Hiển thị lỗi từ FakeAuthDataSource
-            (user) => emit(AuthSuccess(user)),   // Đăng ký xong, tự động đăng nhập luôn
-      );
+        result.fold(
+              (failure) => emit(AuthFailure(failure)),
+              (user) => emit(AuthSuccess(user)),
+        );
+      } catch (e) {
+        emit(AuthFailure("Lỗi đăng ký: ${e.toString()}"));
+      }
     });
 
-    // 3. Xử lý Đăng xuất
+    // 4. Xử lý Đăng xuất: Đưa trạng thái về Initial để quay lại màn hình Login
     on<LogoutRequested>((event, emit) {
-      emit(AuthInitial()); // Quay lại trạng thái ban đầu để hiện màn hình Login
+      // Nếu Việt có dùng SharedPreferences, hãy xóa token ở đây trước khi emit
+      emit(AuthInitial());
     });
   }
 }

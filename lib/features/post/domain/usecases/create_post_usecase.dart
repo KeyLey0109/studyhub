@@ -7,22 +7,31 @@ class CreatePostUseCase {
 
   CreatePostUseCase(this.repository);
 
-  /// Hàm call hỗ trợ đăng bài kèm tên người dùng, nội dung, ảnh hoặc video cho Mobile
+  /// Hàm call thực hiện nghiệp vụ đăng bài viết
   Future<Either<String, void>> call({
     required String content,
-    required String userName, // Thêm tham số này để sửa lỗi gạch đỏ
+    required String userName,
     File? image,
     File? video,
   }) async {
-    // 1. Ràng buộc nghiệp vụ: Bài viết của sinh viên PYU không được để trống hoàn toàn
+    // 1. Kiểm tra nội dung trống
     if (content.trim().isEmpty && image == null && video == null) {
-      return const Left("Nội dung bài viết không được để trống!");
+      return const Left("Vui lòng nhập nội dung hoặc chọn ảnh/video!");
     }
 
-    // 2. Gọi xuống Repository để xử lý lưu trữ kèm tên người đăng
+    // 2. Kiểm tra dung lượng video (Ví dụ: giới hạn 50MB để tránh lỗi upload)
+    if (video != null) {
+      final int sizeInBytes = await video.length();
+      final double sizeInMb = sizeInBytes / (1024 * 1024);
+      if (sizeInMb > 50) {
+        return const Left("Dung lượng video quá lớn (tối đa 50MB)!");
+      }
+    }
+
+    // 3. Gọi xuống Repository để xử lý lưu trữ
     return await repository.createPost(
-      content: content,
-      userName: userName, // Truyền userName xuống tầng Data
+      content: content.trim(),
+      userName: userName,
       image: image,
       video: video,
     );

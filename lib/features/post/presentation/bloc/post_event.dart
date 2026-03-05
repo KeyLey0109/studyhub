@@ -9,21 +9,21 @@ abstract class PostEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Sự kiện để tải danh sách bài viết từ Repository
+/// 1. Tải danh sách bài viết
 class LoadPosts extends PostEvent {
   const LoadPosts();
 }
 
-/// Sự kiện thêm bài viết mới (Đã thêm userName để sửa lỗi gạch đỏ)
-class AddPost extends PostEvent {
+/// 2. Tạo bài viết (Đảm bảo tên class duy nhất trong dự án)
+class CreatePostRequested extends PostEvent {
   final String content;
-  final String userName; // Thêm trường này để biết ai là người đăng
+  final String? userName;
   final File? image;
   final File? video;
 
-  const AddPost({
+  const CreatePostRequested({
     required this.content,
-    required this.userName, // Phải có tên người đăng
+    this.userName,
     this.image,
     this.video,
   });
@@ -32,7 +32,7 @@ class AddPost extends PostEvent {
   List<Object?> get props => [content, userName, image, video];
 }
 
-/// Sự kiện Like/Unlike bài viết
+/// 3. Like/Unlike bài viết
 class ToggleLike extends PostEvent {
   final String postId;
 
@@ -42,7 +42,7 @@ class ToggleLike extends PostEvent {
   List<Object?> get props => [postId];
 }
 
-/// Sự kiện thêm bình luận mới vào bài viết
+/// 4. Thêm bình luận
 class AddComment extends PostEvent {
   final String postId;
   final String commentContent;
@@ -56,7 +56,7 @@ class AddComment extends PostEvent {
   List<Object?> get props => [postId, commentContent];
 }
 
-/// Sự kiện xóa bài viết
+/// 5. Xóa bài viết
 class DeletePost extends PostEvent {
   final String postId;
 
@@ -66,7 +66,7 @@ class DeletePost extends PostEvent {
   List<Object?> get props => [postId];
 }
 
-/// Sự kiện cập nhật thủ công trạng thái bài viết
+/// 6. Cập nhật bài viết
 class UpdatePost extends PostEvent {
   final PostEntity post;
 

@@ -1,125 +1,118 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'injection_container.dart' as di;
 
-// --- IMPORT TẦNG AUTH ---
-import 'features/auth/data/datasources/fake_auth_data_source.dart';
-import 'features/auth/data/repositories/auth_repository_impl.dart';
-import 'features/auth/domain/usecases/login_usecase.dart';
-import 'features/auth/domain/usecases/register_usecase.dart';
+// Import các Bloc
 import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
-import 'features/auth/presentation/pages/login_page.dart';
-
-// --- IMPORT TẦNG POST ---
-import 'features/post/data/datasources/post_local_data_source.dart';
-import 'features/post/data/repositories/post_repository_impl.dart';
-import 'features/post/domain/usecases/get_post_usecase.dart';
-import 'features/post/domain/usecases/create_post_usecase.dart';
 import 'features/post/presentation/bloc/post_bloc.dart';
 import 'features/post/presentation/bloc/post_event.dart';
-import 'features/post/presentation/pages/home_page.dart';
-
-// --- IMPORT TẦNG COMMENT (Mới thêm) ---
-import 'features/comment/data/repositories/comment_repository_impl.dart';
-import 'features/comment/domain/usecases/add_comment_usecase.dart';
 import 'features/comment/presentation/bloc/comment_bloc.dart';
+import 'features/profile/presentation/bloc/profile_bloc.dart';
+import 'features/notifications/presentation/bloc/notification_bloc.dart';
+import 'features/notifications/presentation/bloc/notification_event.dart';
+
+// Import các trang giao diện
+import 'features/auth/presentation/pages/login_page.dart';
+import 'features/post/presentation/pages/root_page.dart';
 
 void main() async {
-  // 1. Khởi tạo các dịch vụ nền tảng
   WidgetsFlutterBinding.ensureInitialized();
-  final sharedPreferences = await SharedPreferences.getInstance();
 
-  // 2. Khởi tạo Data Sources & Repositories
-  final authDataSource = FakeAuthDataSource();
-  final authRepository = AuthRepositoryImpl(fakeDataSource: authDataSource);
+  // Khóa hướng màn hình dọc để UI ổn định
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
-  final postLocalDataSource = PostLocalDataSourceImpl(sharedPreferences: sharedPreferences);
-  final postRepository = PostRepositoryImpl(localDataSource: postLocalDataSource);
+  // Khởi tạo Dependency Injection
+  await di.init();
 
-  // Khởi tạo Repository cho Comment (Dùng chung DataSource của Post để lưu vào cùng một nơi)
-  final commentRepository = CommentRepositoryImpl(localDataSource: postLocalDataSource);
-
-  // 3. Khởi tạo UseCases
-  final loginUseCase = LoginUseCase(authRepository);
-  final registerUseCase = RegisterUseCase(authRepository);
-  final getPostsUseCase = GetPostsUseCase(postRepository);
-  final createPostUseCase = CreatePostUseCase(postRepository);
-
-  // UseCase cho Comment
-  final addCommentUseCase = AddCommentUseCase(commentRepository);
-
-  runApp(MyApp(
-    loginUseCase: loginUseCase,
-    registerUseCase: registerUseCase,
-    getPostsUseCase: getPostsUseCase,
-    createPostUseCase: createPostUseCase,
-    addCommentUseCase: addCommentUseCase, // Truyền vào MyApp
-  ));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final LoginUseCase loginUseCase;
-  final RegisterUseCase registerUseCase;
-  final GetPostsUseCase getPostsUseCase;
-  final CreatePostUseCase createPostUseCase;
-  final AddCommentUseCase addCommentUseCase;
-
-  const MyApp({
-    super.key,
-    required this.loginUseCase,
-    required this.registerUseCase,
-    required this.getPostsUseCase,
-    required this.createPostUseCase,
-    required this.addCommentUseCase,
-  });
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        // 1. AuthBloc: Quản lý phiên đăng nhập của sinh viên PYU
+        // Khởi tạo Auth và check session ngay lập tức
         BlocProvider<AuthBloc>(
-          create: (context) => AuthBloc(
-            loginUseCase: loginUseCase,
-            registerUseCase: registerUseCase,
-          ),
+          create: (_) => di.sl<AuthBloc>()..add(AppStarted()),
         ),
-
-        // 2. PostBloc: Quản lý bài viết và tương tác Like
+        // SỬA LỖI: Thêm dấu ngoặc đơn () để khởi tạo Event object
         BlocProvider<PostBloc>(
-          create: (context) => PostBloc(
-            getPostsUseCase: getPostsUseCase,
-            createPostUseCase: createPostUseCase,
-            authBloc: BlocProvider.of<AuthBloc>(context),
-          )..add(const LoadPosts()),
+          create: (_) => di.sl<PostBloc>()..add(const LoadPosts()),
         ),
-
-        // 3. CommentBloc: Xử lý bình luận đa tầng (Cần AuthBloc để biết ai đang comment)
-        BlocProvider<CommentBloc>(
-          create: (context) => CommentBloc(
-            addCommentUseCase: addCommentUseCase,
-            authBloc: BlocProvider.of<AuthBloc>(context),
-          ),
+        BlocProvider<CommentBloc>(create: (_) => di.sl<CommentBloc>()),
+        BlocProvider<ProfileBloc>(create: (_) => di.sl<ProfileBloc>()),
+        // SỬA LỖI: Khởi tạo instance của LoadNotifications()
+        BlocProvider<NotificationBloc>(
+          create: (_) => di.sl<NotificationBloc>()..add(const LoadNotifications()),
         ),
       ],
       child: MaterialApp(
         title: 'StudyHub',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-          useMaterial3: true,
-          scaffoldBackgroundColor: const Color.fromARGB(255, 240, 242, 245),
-        ),
-        home: BlocBuilder<AuthBloc, AuthState>(
-          builder: (context, state) {
-            if (state is AuthSuccess) {
-              return const HomePage();
-            }
-            return const LoginPage();
-          },
+        theme: _buildTheme(context),
+        home: const AuthenticationWrapper(),
+      ),
+    );
+  }
+
+  ThemeData _buildTheme(BuildContext context) {
+    return ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: const Color(0xFF1877F2),
+        primary: const Color(0xFF1877F2),
+      ),
+      textTheme: GoogleFonts.robotoTextTheme(Theme.of(context).textTheme),
+      scaffoldBackgroundColor: const Color(0xFFF0F2F5),
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        surfaceTintColor: Colors.white,
+        centerTitle: false,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        titleTextStyle: GoogleFonts.roboto(
+          color: const Color(0xFF1877F2),
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
+          letterSpacing: -1.2,
         ),
       ),
+      dividerTheme: DividerThemeData(
+        thickness: 0.5,
+        color: Colors.grey.withValues(alpha: 0.2),
+      ),
+    );
+  }
+}
+
+class AuthenticationWrapper extends StatelessWidget {
+  const AuthenticationWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        if (state is AuthSuccess) {
+          return const RootPage();
+        } else if (state is AuthLoading) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1877F2)),
+              ),
+            ),
+          );
+        }
+        return const LoginPage();
+      },
     );
   }
 }

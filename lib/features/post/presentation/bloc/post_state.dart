@@ -8,25 +8,40 @@ abstract class PostState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Trạng thái ban đầu khi chưa có dữ liệu
+/// 1. Trạng thái khởi tạo
 class PostInitial extends PostState {}
 
-/// Trạng thái đang tải dữ liệu (hiển thị CircularProgressIndicator)
+/// 2. Trạng thái tải toàn bộ trang (Dùng khi mới vào app)
 class PostLoading extends PostState {}
 
-/// Trạng thái đã tải dữ liệu thành công
-/// Đây là phần giúp sửa lỗi "PostLoaded isn't defined"
+/// 3. Trạng thái đã tải dữ liệu thành công
 class PostLoaded extends PostState {
   final List<PostEntity> posts;
 
-  const PostLoaded({required this.posts});
+  // Thêm flag để biết có đang trong quá trình đăng bài mới hay không
+  final bool isCreating;
+
+  const PostLoaded({
+    required this.posts,
+    this.isCreating = false,
+  });
+
+  // Hỗ trợ cập nhật trạng thái mà không làm mất danh sách bài viết hiện tại
+  PostLoaded copyWith({
+    List<PostEntity>? posts,
+    bool? isCreating,
+  }) {
+    return PostLoaded(
+      posts: posts ?? this.posts,
+      isCreating: isCreating ?? this.isCreating, // Sửa ở đây nè!
+    );
+  }
 
   @override
-  List<Object?> get props => [posts];
+  List<Object?> get props => [posts, isCreating];
 }
 
-/// Trạng thái xảy ra lỗi
-/// Đây là phần giúp sửa lỗi "PostError isn't defined"
+/// 4. Trạng thái xảy ra lỗi
 class PostError extends PostState {
   final String message;
 
