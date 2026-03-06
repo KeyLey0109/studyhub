@@ -1,48 +1,39 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/usecases/add_comment_usecase.dart';
-import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../auth/presentation/bloc/auth_state.dart';
 import 'comment_event.dart';
 import 'comment_state.dart';
 
 class CommentBloc extends Bloc<CommentEvent, CommentState> {
   final AddCommentUseCase addCommentUseCase;
-  final AuthBloc authBloc;
 
   CommentBloc({
     required this.addCommentUseCase,
-    required this.authBloc,
-  }) : super(CommentInitial()) {
+  }) : super(const CommentInitial()) { // Thêm const ở trạng thái ban đầu
 
     on<SubmitComment>((event, emit) async {
-      // 1. Kiểm tra quyền truy cập từ AuthBloc
-      final authState = authBloc.state;
-      if (authState is! AuthSuccess) {
-        emit(const CommentError("Vui lòng đăng nhập để thực hiện chức năng này"));
-        return;
-      }
+      // 1. Chuyển sang trạng thái Loading (Dùng const vì constructor đã có const)
+      emit(const CommentLoading());
 
-      // 2. Trạng thái đang xử lý
-      emit(CommentLoading());
-
-      // 3. Gọi UseCase với thông tin người dùng hiện tại
+      // 2. Gọi UseCase xử lý logic nghiệp vụ từ tầng Domain
       final result = await addCommentUseCase(
         postId: event.postId,
         content: event.content,
-        userId: authState.user.id,
-        userName: authState.user.name,
+        userId: event.userId,
+        userName: event.userName,
         parentCommentId: event.parentCommentId,
       );
 
-      // 4. Trả về kết quả cuối cùng cho UI
+      // 3. Xử lý kết quả trả về từ UseCase
       result.fold(
+        // KHÔNG dùng const ở đây vì 'failure' là dữ liệu động
             (failure) => emit(CommentError(failure)),
-            (_) {
-          // Gửi thêm thông tin để UI biết đây là bình luận mới hay phản hồi
-          emit(CommentSuccess());
 
-          // Sau khi thành công, đưa về Initial để sẵn sàng cho bình luận tiếp theo
-          emit(CommentInitial());
+            (_) {
+          // Dùng const cho Success nếu không truyền message
+          emit(const CommentSuccess());
+
+          // Reset về Initial (Dùng const) để UI sẵn sàng cho lượt bình luận mới
+          emit(const CommentInitial());
         },
       );
     });

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:dartz/dartz.dart';
 import '../repositories/post_repository.dart';
 
@@ -7,24 +6,28 @@ class CreatePostUseCase {
 
   CreatePostUseCase(this.repository);
 
-  /// Hàm call hỗ trợ đăng bài kèm tên người dùng, nội dung, ảnh hoặc video cho Mobile
+  /// Hàm call thực hiện nghiệp vụ đăng bài viết
   Future<Either<String, void>> call({
     required String content,
-    required String userName, // Thêm tham số này để sửa lỗi gạch đỏ
-    File? image,
-    File? video,
+    required String userId,
+    required String userName,
+    String? imagePath,
+    String? videoPath,
+    String? userAvatarUrl,
   }) async {
-    // 1. Ràng buộc nghiệp vụ: Bài viết của sinh viên PYU không được để trống hoàn toàn
-    if (content.trim().isEmpty && image == null && video == null) {
-      return const Left("Nội dung bài viết không được để trống!");
+    // 1. Kiểm tra nội dung trống
+    if (content.trim().isEmpty && imagePath == null && videoPath == null) {
+      return const Left("Vui lòng nhập nội dung hoặc chọn ảnh/video!");
     }
 
-    // 2. Gọi xuống Repository để xử lý lưu trữ kèm tên người đăng
+    // 2. Gọi xuống Repository để xử lý lưu trữ
     return await repository.createPost(
-      content: content,
-      userName: userName, // Truyền userName xuống tầng Data
-      image: image,
-      video: video,
+      content: content.trim(),
+      userId: userId,
+      userName: userName,
+      imagePath: imagePath,
+      videoPath: videoPath,
+      userAvatarUrl: userAvatarUrl,
     );
   }
 }

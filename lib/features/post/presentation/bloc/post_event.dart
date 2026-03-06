@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/post_entity.dart';
 
@@ -9,30 +8,42 @@ abstract class PostEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Sự kiện để tải danh sách bài viết từ Repository
+/// 1. Tải danh sách bài viết
+/// Được gọi khi mở App, Refresh trang hoặc sau khi đăng bài thành công.
 class LoadPosts extends PostEvent {
-  const LoadPosts();
+  final String? userId;
+  const LoadPosts({this.userId});
+
+  @override
+  List<Object?> get props => [userId];
 }
 
-/// Sự kiện thêm bài viết mới (Đã thêm userName để sửa lỗi gạch đỏ)
-class AddPost extends PostEvent {
+/// 2. Sự kiện đăng bài viết mới
+/// Chấp nhận đường dẫn File hình ảnh hoặc video từ bộ nhớ máy thông qua ImagePicker.
+class CreatePostRequested extends PostEvent {
   final String content;
-  final String userName; // Thêm trường này để biết ai là người đăng
-  final File? image;
-  final File? video;
+  final String userId;
+  final String userName;
+  final String? imagePath;
+  final String? videoPath;
+  final String? userAvatarUrl;
 
-  const AddPost({
+  const CreatePostRequested({
     required this.content,
-    required this.userName, // Phải có tên người đăng
-    this.image,
-    this.video,
+    required this.userId,
+    required this.userName,
+    this.imagePath,
+    this.videoPath,
+    this.userAvatarUrl,
   });
 
   @override
-  List<Object?> get props => [content, userName, image, video];
+  List<Object?> get props =>
+      [content, userId, userName, imagePath, videoPath, userAvatarUrl];
 }
 
-/// Sự kiện Like/Unlike bài viết
+/// 3. Sự kiện Thích/Bỏ thích bài viết (Toggle Like)
+/// Chỉ cần postId, việc xác định User ID sẽ do Bloc lấy từ AuthBloc.
 class ToggleLike extends PostEvent {
   final String postId;
 
@@ -42,7 +53,8 @@ class ToggleLike extends PostEvent {
   List<Object?> get props => [postId];
 }
 
-/// Sự kiện thêm bình luận mới vào bài viết
+/// 4. Sự kiện thêm bình luận
+/// Mang nội dung bình luận đến Bloc để tạo đối tượng CommentEntity mới.
 class AddComment extends PostEvent {
   final String postId;
   final String commentContent;
@@ -56,17 +68,8 @@ class AddComment extends PostEvent {
   List<Object?> get props => [postId, commentContent];
 }
 
-/// Sự kiện xóa bài viết
-class DeletePost extends PostEvent {
-  final String postId;
-
-  const DeletePost(this.postId);
-
-  @override
-  List<Object?> get props => [postId];
-}
-
-/// Sự kiện cập nhật thủ công trạng thái bài viết
+/// 5. Cập nhật bài viết cục bộ (Local Update)
+/// Dùng để cập nhật ngay lập tức một bài viết cụ thể trong danh sách mà không cần reload toàn bộ.
 class UpdatePost extends PostEvent {
   final PostEntity post;
 
@@ -74,4 +77,15 @@ class UpdatePost extends PostEvent {
 
   @override
   List<Object?> get props => [post];
+}
+
+/// 6. Xóa bài viết
+/// Chỉnh sửa named parameter để đồng bộ với cách gọi trong Bloc.
+class DeletePost extends PostEvent {
+  final String postId;
+
+  const DeletePost({required this.postId});
+
+  @override
+  List<Object?> get props => [postId];
 }

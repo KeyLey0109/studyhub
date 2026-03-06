@@ -1,17 +1,20 @@
 import '../../domain/entities/comment_entity.dart';
 
+/// [CommentModel] là phiên bản cụ thể của [CommentEntity] tại tầng Data.
+/// Nó cung cấp khả năng chuyển đổi dữ liệu (Serialization) để lưu trữ cục bộ.
 class CommentModel extends CommentEntity {
-  // Constructor const giúp tối ưu hiệu năng render danh sách bình luận
+
   const CommentModel({
     required super.id,
     required super.userId,
     required super.userName,
     required super.content,
     required super.timestamp,
-    required super.replies, // Truyền trực tiếp vào lớp cha thông qua super parameter
+    required List<CommentModel> super.replies, // Ép kiểu cụ thể cho List replies
   });
 
-  // Chuyển đổi từ Entity sang Model chuẩn đệ quy
+  /// Chuyển đổi từ Entity sang Model chuẩn đệ quy.
+  /// Đây là "chìa khóa" để dứt điểm lỗi TypeError (màn hình đỏ) khi cập nhật UI.
   factory CommentModel.fromEntity(CommentEntity entity) {
     return CommentModel(
       id: entity.id,
@@ -24,22 +27,24 @@ class CommentModel extends CommentEntity {
     );
   }
 
-  // Chuyển đổi từ JSON (SharedPreferences) sang Model
+  /// Chuyển đổi từ JSON (SharedPreferences) sang Model.
   factory CommentModel.fromJson(Map<String, dynamic> json) {
     return CommentModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      userName: json['userName'] as String,
-      content: json['content'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      // Đệ quy nạp các reply con từ JSON
+      id: json['id'] as String? ?? '',
+      userId: json['userId'] as String? ?? '',
+      userName: json['userName'] as String? ?? 'Sinh viên PYU',
+      content: json['content'] as String? ?? '',
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : DateTime.now(),
+      // Đệ quy nạp các reply con từ JSON an toàn
       replies: (json['replies'] as List? ?? [])
           .map((e) => CommentModel.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
 
-  // Chuyển đổi từ Model sang JSON để lưu vào máy
+  /// Chuyển đổi từ Model sang JSON để lưu vào bộ nhớ máy.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -47,7 +52,7 @@ class CommentModel extends CommentEntity {
       'userName': userName,
       'content': content,
       'timestamp': timestamp.toIso8601String(),
-      // Điểm mấu chốt: Luôn đảm bảo đối tượng là Model trước khi gọi toJson
+      // Đảm bảo mọi phần tử trong cây đệ quy đều được gọi toJson()
       'replies': replies.map((e) {
         final model = e is CommentModel ? e : CommentModel.fromEntity(e);
         return model.toJson();

@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/post_entity.dart';
+import 'package:appstudyhub/features/post/domain/entities/post_entity.dart';
 
 abstract class PostState extends Equatable {
   const PostState();
@@ -8,25 +8,39 @@ abstract class PostState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Trạng thái ban đầu khi chưa có dữ liệu
+/// 1. Trạng thái khởi tạo
 class PostInitial extends PostState {}
 
-/// Trạng thái đang tải dữ liệu (hiển thị CircularProgressIndicator)
+/// 2. Trạng thái đang tải dữ liệu (lần đầu hoặc làm mới toàn bộ)
 class PostLoading extends PostState {}
 
-/// Trạng thái đã tải dữ liệu thành công
-/// Đây là phần giúp sửa lỗi "PostLoaded isn't defined"
+/// 3. Trạng thái quan trọng nhất: Đã tải dữ liệu
+/// Quản lý danh sách bài viết và các trạng thái phụ như đang đăng bài.
 class PostLoaded extends PostState {
   final List<PostEntity> posts;
+  final bool isCreating; // Để hiển thị LinearProgressIndicator khi đang upload
 
-  const PostLoaded({required this.posts});
+  const PostLoaded({
+    this.posts = const [],
+    this.isCreating = false,
+  });
+
+  /// Phương thức copyWith giúp cập nhật từng phần của State mà không mất dữ liệu cũ
+  PostLoaded copyWith({
+    List<PostEntity>? posts,
+    bool? isCreating,
+  }) {
+    return PostLoaded(
+      posts: posts ?? this.posts,
+      isCreating: isCreating ?? this.isCreating,
+    );
+  }
 
   @override
-  List<Object?> get props => [posts];
+  List<Object?> get props => [posts, isCreating];
 }
 
-/// Trạng thái xảy ra lỗi
-/// Đây là phần giúp sửa lỗi "PostError isn't defined"
+/// 4. Trạng thái xảy ra lỗi
 class PostError extends PostState {
   final String message;
 
