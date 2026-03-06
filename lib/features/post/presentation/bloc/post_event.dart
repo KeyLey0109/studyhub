@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+import 'dart:io';
+>>>>>>> origin/feature
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/post_entity.dart';
 
@@ -11,6 +15,7 @@ abstract class PostEvent extends Equatable {
 /// 1. Tải danh sách bài viết
 /// Được gọi khi mở App, Refresh trang hoặc sau khi đăng bài thành công.
 class LoadPosts extends PostEvent {
+<<<<<<< HEAD
   final String? userId;
   const LoadPosts({this.userId});
 
@@ -40,6 +45,28 @@ class CreatePostRequested extends PostEvent {
   @override
   List<Object?> get props =>
       [content, userId, userName, imagePath, videoPath, userAvatarUrl];
+=======
+  const LoadPosts();
+}
+
+/// 2. Sự kiện đăng bài viết mới
+/// Chấp nhận File hình ảnh hoặc video từ bộ nhớ máy thông qua ImagePicker.
+class CreatePostRequested extends PostEvent {
+  final String content;
+  final String? userName;
+  final File? image;
+  final File? video;
+
+  const CreatePostRequested({
+    required this.content,
+    this.userName,
+    this.image,
+    this.video,
+  });
+
+  @override
+  List<Object?> get props => [content, userName, image, video];
+>>>>>>> origin/feature
 }
 
 /// 3. Sự kiện Thích/Bỏ thích bài viết (Toggle Like)
@@ -88,4 +115,8 @@ class DeletePost extends PostEvent {
 
   @override
   List<Object?> get props => [postId];
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/feature

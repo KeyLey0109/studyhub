@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 // Pages
 import 'home_page.dart';
+import 'video_page.dart';
 import '../../../notifications/presentation/pages/notification_screen.dart';
 import '../../../profile/presentation/pages/profile_screen.dart';
 
@@ -11,8 +12,6 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../notifications/presentation/bloc/notification_bloc.dart';
 import '../../../notifications/presentation/bloc/notification_state.dart';
-import '../bloc/post_bloc.dart';
-import '../bloc/post_event.dart';
 
 class RootPage extends StatefulWidget {
   const RootPage({super.key});
@@ -23,15 +22,6 @@ class RootPage extends StatefulWidget {
 
 class _RootPageState extends State<RootPage> {
   int _currentIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    // Đảm bảo mỗi khi vào RootPage (Đăng nhập mới), bẳng tin luôn được làm mới
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<PostBloc>().add(const LoadPosts());
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,17 +37,7 @@ class _RootPageState extends State<RootPage> {
     // Lưu ý: KHÔNG dùng từ khóa 'const' trước mảng này vì ProfileScreen nhận biến động.
     final List<Widget> pages = [
       const HomePage(),
-      const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.video_library_outlined, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text("Tính năng Video đang phát triển",
-                style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
+      const VideoPage(),
       const NotificationScreen(),
       // Chỉ render Profile khi đã có ID, tránh lỗi truyền chuỗi rỗng
       currentUserId.isNotEmpty

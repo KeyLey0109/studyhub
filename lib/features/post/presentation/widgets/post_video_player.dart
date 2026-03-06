@@ -1,6 +1,5 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' as io;
 import 'package:video_player/video_player.dart';
 
 class PostVideoPlayer extends StatefulWidget {
@@ -18,15 +17,17 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
   late VideoPlayerController _controller;
   bool _isInitialized = false;
 
+  bool _hasError = false;
+
   @override
   void initState() {
     super.initState();
-    // Khởi tạo controller: Web dùng network (Blob URL), Mobile dùng file
-    if (kIsWeb) {
+    // Khởi tạo controller từ đường dẫn file trên máy sinh viên PYU hoặc URL mạng
+    if (widget.videoPath.startsWith('http')) {
       _controller =
           VideoPlayerController.networkUrl(Uri.parse(widget.videoPath));
     } else {
-      _controller = VideoPlayerController.file(io.File(widget.videoPath));
+      _controller = VideoPlayerController.file(File(widget.videoPath));
     }
 
     _controller.initialize().then((_) {
@@ -34,6 +35,12 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
       if (mounted) {
         setState(() {
           _isInitialized = true;
+        });
+      }
+    }).catchError((error) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
         });
       }
     });
@@ -51,6 +58,24 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    if (_hasError) {
+      return Container(
+        height: 250,
+        decoration: const BoxDecoration(color: Colors.black),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: Colors.white54, size: 40),
+              SizedBox(height: 8),
+              Text("Không thể tải video",
+                  style: TextStyle(color: Colors.white54)),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (!_isInitialized) {
       return Container(
         height: 250,

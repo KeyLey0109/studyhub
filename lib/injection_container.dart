@@ -18,6 +18,8 @@ import 'features/post/domain/usecases/create_post_usecase.dart';
 import 'features/post/domain/usecases/toggle_like_usecase.dart';
 import 'features/post/presentation/bloc/post_bloc.dart';
 
+// --- IMPORT COMMENT ---
+import 'features/comment/data/repositories/comment_repository_impl.dart';
 import 'features/comment/domain/repositories/comment_repository.dart';
 import 'features/comment/domain/usecases/add_comment_usecase.dart';
 import 'features/comment/presentation/bloc/comment_bloc.dart';
@@ -49,15 +51,15 @@ Future<void> init() async {
   sl.registerLazySingleton(() => FakeAuthDataSource());
 
   //! 3. FEATURES - POST
-  // CẬP NHẬT: Đăng ký PostBloc nhận thêm localDataSource để dứt điểm lỗi lưu cache
-  sl.registerFactoryParam<PostBloc, AuthBloc, void>(
-    (authBloc, _) => PostBloc(
+  sl.registerFactoryParam<PostBloc, AuthBloc, NotificationBloc>(
+    (authBloc, notificationBloc) => PostBloc(
       getPostsUseCase: sl(),
       createPostUseCase: sl(),
       toggleLikeUseCase: sl(),
       addCommentUseCase: sl(),
       localDataSource: sl(),
       authBloc: authBloc,
+      notificationBloc: notificationBloc,
     ),
   );
 

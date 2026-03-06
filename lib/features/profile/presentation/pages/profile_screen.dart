@@ -8,12 +8,6 @@ import '../../domain/entities/profile_entity.dart';
 import '../widgets/friend_list_widget.dart';
 import 'edit_profile_screen.dart';
 
-// Import Post Layer for the feed
-import '../../../post/presentation/bloc/post_bloc.dart';
-import '../../../post/presentation/bloc/post_event.dart';
-import '../../../post/presentation/bloc/post_state.dart';
-import '../../../post/presentation/widgets/post_card.dart';
-
 class ProfileScreen extends StatelessWidget {
   final String userId;
   final bool isCurrentUser;
@@ -28,8 +22,6 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Gọi fetch profile ngay khi vào màn hình
     context.read<ProfileBloc>().add(FetchProfileEvent(userId));
-    // Tải bảng tin riêng của user này
-    context.read<PostBloc>().add(LoadPosts(userId: userId));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
@@ -65,10 +57,6 @@ class ProfileScreen extends StatelessWidget {
 
                   // --- PHẦN 3: BẠN BÈ ---
                   _buildFriendsSection(profile),
-                  const SizedBox(height: 16),
-
-                  // --- PHẦN 4: BẢNG TIN RIÊNG (WALL) ---
-                  _buildPostFeedSection(profile),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -102,9 +90,9 @@ class ProfileScreen extends StatelessWidget {
                   color: Colors.blue.shade100,
                   image: profile.coverUrl != null
                       ? DecorationImage(
-                          image: NetworkImage(profile.coverUrl!),
-                          fit: BoxFit.cover,
-                        )
+                    image: NetworkImage(profile.coverUrl!),
+                    fit: BoxFit.cover,
+                  )
                       : null,
                 ),
               ),
@@ -123,8 +111,7 @@ class ProfileScreen extends StatelessWidget {
                         ? NetworkImage(profile.avatarUrl!)
                         : null,
                     child: profile.avatarUrl == null
-                        ? const Icon(Icons.person,
-                            size: 60, color: Colors.white)
+                        ? const Icon(Icons.person, size: 60, color: Colors.white)
                         : null,
                   ),
                 ),
@@ -139,8 +126,7 @@ class ProfileScreen extends StatelessWidget {
               children: [
                 Text(
                   profile.userName,
-                  style: const TextStyle(
-                      fontSize: 24, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -259,55 +245,5 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildOtherUserActions(BuildContext context, ProfileEntity profile) {
     return const SizedBox.shrink(); // Thêm logic kết bạn sau
-  }
-
-  Widget _buildPostFeedSection(ProfileEntity profile) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            "Bài viết của ${profile.userName}",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 12),
-        BlocBuilder<PostBloc, PostState>(
-          builder: (context, state) {
-            if (state is PostLoading) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
-            if (state is PostLoaded) {
-              if (state.posts.isEmpty) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20),
-                    child: Text("Cá nhân này chưa có bài viết nào."),
-                  ),
-                );
-              }
-              return ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: state.posts.length,
-                itemBuilder: (context, index) {
-                  return PostCard(post: state.posts[index]);
-                },
-              );
-            }
-            if (state is PostError) {
-              return Center(child: Text(state.message));
-            }
-            return const SizedBox.shrink();
-          },
-        ),
-      ],
-    );
   }
 }

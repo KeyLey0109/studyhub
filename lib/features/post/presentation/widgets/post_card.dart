@@ -1,6 +1,5 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' as io;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/post_entity.dart';
@@ -13,7 +12,6 @@ import '../../../auth/presentation/bloc/auth_state.dart';
 
 import 'post_video_player.dart';
 import '../../../comment/presentation/widgets/comment_sheet.dart';
-import '../../../../features/profile/presentation/pages/profile_screen.dart';
 
 class PostCard extends StatefulWidget {
   final PostEntity post;
@@ -52,10 +50,10 @@ class _PostCardState extends State<PostCard> {
 
         if (state is PostLoaded) {
           // Lấy dữ liệu mới nhất của bài viết này từ State của Bloc
-          displayPost = state.posts.cast<PostEntity>().firstWhere(
-                (p) => p.id == widget.post.id,
-                orElse: () => widget.post,
-              );
+          displayPost = state.posts.firstWhere(
+            (p) => p.id == widget.post.id,
+            orElse: () => widget.post,
+          );
         }
 
         // Sử dụng getter isLikedBy và likeCount từ PostEntity mới
@@ -76,11 +74,7 @@ class _PostCardState extends State<PostCard> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(12.0),
-                child: _PostHeader(
-                  post: displayPost,
-                  currentUserId: currentUserId,
-                  currentUserAvatarUrl: authState.user.avatarUrl,
-                ),
+                child: _PostHeader(post: displayPost),
               ),
 
               if (displayPost.content.isNotEmpty)
@@ -199,21 +193,29 @@ class _PostCardState extends State<PostCard> {
   }
 
   Widget _buildMediaSection(PostEntity post) {
-    // Sử dụng imagePath và videoPath từ Entity mới
-    if (post.hasImage) {
-      final path = post.imagePath!;
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: kIsWeb || path.startsWith('http')
-            ? Image.network(path, width: double.infinity, fit: BoxFit.cover)
-            : Image.file(io.File(path),
-                width: double.infinity, fit: BoxFit.cover),
-      );
+    if (!post.hasImage && !post.hasVideo) {
+      return const SizedBox.shrink();
     }
-    if (post.hasVideo) {
-      return PostVideoPlayer(videoPath: post.videoPath!);
-    }
-    return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (post.hasImage)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: post.imagePath!.startsWith('http')
+                ? Image.network(post.imagePath!,
+                    width: double.infinity, fit: BoxFit.cover)
+                : Image.file(File(post.imagePath!),
+                    width: double.infinity, fit: BoxFit.cover),
+          ),
+        if (post.hasVideo)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: PostVideoPlayer(videoPath: post.videoPath!),
+          ),
+      ],
+    );
   }
 
   Widget _buildLikeIconStack() {
@@ -242,52 +244,19 @@ class _PostCardState extends State<PostCard> {
 
 class _PostHeader extends StatelessWidget {
   final PostEntity post;
-  final String currentUserId;
-  final String? currentUserAvatarUrl;
-
-  const _PostHeader({
-    required this.post,
-    required this.currentUserId,
-    this.currentUserAvatarUrl,
-  });
+  const _PostHeader({required this.post});
 
   @override
   Widget build(BuildContext context) {
-    // Nếu là bài viết của chính mình, ưu tiên dùng ảnh từ authState (để cập nhật realtime)
-    final String? displayAvatarUrl = (post.userId == currentUserId)
-        ? currentUserAvatarUrl
-        : post.userAvatarUrl;
-
     return Row(
       children: [
-        GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => ProfileScreen(
-                  userId: post.userId,
-                  isCurrentUser: post.userId == currentUserId,
-                ),
-              ),
-            );
-          },
-          child: CircleAvatar(
-            radius: 18,
-            backgroundColor: const Color(0xFF1877F2).withValues(alpha: 0.1),
-            backgroundImage:
-                displayAvatarUrl != null && displayAvatarUrl.isNotEmpty
-                    ? NetworkImage(displayAvatarUrl)
-                    : null,
-            child: displayAvatarUrl == null || displayAvatarUrl.isEmpty
-                ? Text(
-                    post.userName.isNotEmpty
-                        ? post.userName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                        color: Color(0xFF1877F2), fontWeight: FontWeight.bold),
-                  )
-                : null,
+        CircleAvatar(
+          radius: 18,
+          backgroundColor: const Color(0xFF1877F2).withValues(alpha: 0.1),
+          child: Text(
+            post.userName.isNotEmpty ? post.userName[0].toUpperCase() : '?',
+            style: const TextStyle(
+                color: Color(0xFF1877F2), fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 10.0),
@@ -295,22 +264,9 @@ class _PostHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ProfileScreen(
-                        userId: post.userId,
-                        isCurrentUser: post.userId == currentUserId,
-                      ),
-                    ),
-                  );
-                },
-                child: Text(post.userName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14)),
-              ),
+              Text(post.userName,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 14)),
               const SizedBox(height: 2),
               Row(
                 children: [

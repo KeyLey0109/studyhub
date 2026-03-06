@@ -1,6 +1,5 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' as io;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,7 +22,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _bioController;
   late TextEditingController _emailController; // Thêm controller cho email
   DateTime? _selectedDate;
-  XFile? _imageFile;
+  File? _imageFile;
   final _picker = ImagePicker();
 
   @override
@@ -44,10 +43,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? pickedFile =
-        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
     if (pickedFile != null) {
-      setState(() => _imageFile = pickedFile);
+      setState(() => _imageFile = File(pickedFile.path));
     }
   }
 
@@ -57,10 +55,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text("Chỉnh sửa trang cá nhân",
-            style: TextStyle(
-                color: Colors.black,
-                fontSize: 18,
-                fontWeight: FontWeight.bold)),
+            style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
@@ -71,19 +66,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextButton(
             onPressed: () {
               context.read<ProfileBloc>().add(
-                    UpdateProfileDetailEvent(
-                      name: _nameController.text.trim(),
-                      birthDate: _selectedDate,
-                      bio: _bioController.text.trim(),
-                      avatarPath: _imageFile?.path,
-                    ),
-                  );
+                UpdateProfileDetailEvent(
+                  name: _nameController.text.trim(),
+                  birthDate: _selectedDate,
+                  bio: _bioController.text.trim(),
+                  avatarPath: _imageFile?.path,
+                ),
+              );
             },
             child: const Text("LƯU",
-                style: TextStyle(
-                    color: Color(0xFF1877F2),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16)),
+                style: TextStyle(color: Color(0xFF1877F2), fontWeight: FontWeight.bold, fontSize: 16)),
           ),
         ],
       ),
@@ -94,8 +86,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 const SnackBar(content: Text("Đã cập nhật thông tin cá nhân")));
             Navigator.pop(context);
           } else if (state is ProfileError) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(state.message), backgroundColor: Colors.red));
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.message), backgroundColor: Colors.red));
           }
         },
         child: SingleChildScrollView(
@@ -116,20 +108,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: CircleAvatar(
                         radius: 70,
                         backgroundColor: Colors.grey[100],
-                        // Sửa lỗi ép kiểu: ImageProvider
+                        // Sửa lỗi ép kiểu: ImageProvider không dùng const ở đây
                         backgroundImage: _imageFile != null
-                            ? (kIsWeb
-                                ? NetworkImage(_imageFile!.path)
-                                : FileImage(io.File(_imageFile!.path))
-                                    as ImageProvider)
+                            ? FileImage(_imageFile!)
                             : (widget.profile.avatarUrl != null
-                                ? NetworkImage(widget.profile.avatarUrl!)
-                                    as ImageProvider
-                                : null),
-                        child: _imageFile == null &&
-                                widget.profile.avatarUrl == null
-                            ? Icon(Icons.person,
-                                size: 70, color: Colors.grey[400])
+                            ? NetworkImage(widget.profile.avatarUrl!) as ImageProvider
+                            : null),
+                        child: _imageFile == null && widget.profile.avatarUrl == null
+                            ? Icon(Icons.person, size: 70, color: Colors.grey[400])
                             : null,
                       ),
                     ),
@@ -139,8 +125,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: CircleAvatar(
                         backgroundColor: Colors.grey[200],
                         radius: 18,
-                        child: const Icon(Icons.camera_alt,
-                            size: 20, color: Colors.black87),
+                        child: const Icon(Icons.camera_alt, size: 20, color: Colors.black87),
                       ),
                     ),
                   ],
@@ -204,32 +189,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           if (onAction != null)
             TextButton(
                 onPressed: onAction,
-                child: const Text("Chỉnh sửa",
-                    style: TextStyle(color: Color(0xFF1877F2)))),
+                child: const Text("Chỉnh sửa", style: TextStyle(color: Color(0xFF1877F2)))
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildCustomTextField(
-      {required TextEditingController controller,
-      required String label,
-      required IconData icon,
-      bool readOnly = false}) {
+  Widget _buildCustomTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool readOnly = false
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: TextStyle(
-                color: Colors.grey[600],
-                fontSize: 14,
-                fontWeight: FontWeight.w500)),
+        Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 14, fontWeight: FontWeight.w500)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -237,10 +217,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           style: TextStyle(color: readOnly ? Colors.grey : Colors.black),
           decoration: InputDecoration(
             prefixIcon: Icon(icon, color: const Color(0xFF1877F2)),
-            enabledBorder: UnderlineInputBorder(
-                borderSide: BorderSide(color: Colors.grey[300]!)),
-            focusedBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFF1877F2))),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey[300]!)),
+            focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF1877F2))),
           ),
         ),
       ],
@@ -261,20 +239,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Ngày sinh",
-              style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500)),
+          Text("Ngày sinh", style: TextStyle(color: Colors.grey[600], fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
           Row(
             children: [
               const Icon(Icons.cake_outlined, color: Color(0xFF1877F2)),
               const SizedBox(width: 12),
               Text(
-                _selectedDate == null
-                    ? "Thêm ngày sinh"
-                    : DateFormat('dd/MM/yyyy').format(_selectedDate!),
+                _selectedDate == null ? "Thêm ngày sinh" : DateFormat('dd/MM/yyyy').format(_selectedDate!),
                 style: const TextStyle(fontSize: 16),
               ),
               const Spacer(),

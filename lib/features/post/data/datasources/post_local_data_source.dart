@@ -1,5 +1,8 @@
 import 'dart:convert';
+<<<<<<< HEAD
 import 'package:flutter/foundation.dart';
+=======
+>>>>>>> origin/feature
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/post_model.dart';
 
@@ -19,8 +22,14 @@ class PostLocalDataSourceImpl implements PostLocalDataSource {
   @override
   Future<void> cachePosts(List<PostModel> postsToCache) async {
     // Chuyển đổi sang JSON String List
+<<<<<<< HEAD
     final List<String> jsonPostList =
         postsToCache.map((post) => json.encode(post.toJson())).toList();
+=======
+    final List<String> jsonPostList = postsToCache
+        .map((post) => json.encode(post.toJson()))
+        .toList();
+>>>>>>> origin/feature
 
     await sharedPreferences.setStringList(cachedPostsKey, jsonPostList);
   }
@@ -34,6 +43,7 @@ class PostLocalDataSourceImpl implements PostLocalDataSource {
     }
 
     try {
+<<<<<<< HEAD
       final List<PostModel> posts = [];
       for (final jsonString in jsonList) {
         try {
@@ -51,3 +61,17 @@ class PostLocalDataSourceImpl implements PostLocalDataSource {
     }
   }
 }
+=======
+      // Dùng map và toList để chuyển đổi dữ liệu
+      return jsonList.map((jsonString) {
+        return PostModel.fromJson(json.decode(jsonString) as Map<String, dynamic>);
+      }).toList();
+    } catch (e) {
+      // Nếu dữ liệu không tương thích (ví dụ: thiếu trường comments mới)
+      // Xóa cache cũ để đảm bảo ứng dụng không bị lỗi subtype
+      await sharedPreferences.remove(cachedPostsKey);
+      return [];
+    }
+  }
+}
+>>>>>>> origin/feature

@@ -1,4 +1,8 @@
 import 'package:equatable/equatable.dart';
+<<<<<<< HEAD
+=======
+import '../../domain/entities/notification_entity.dart';
+>>>>>>> origin/feature
 
 /// Lớp trừu tượng cơ sở cho mọi sự kiện liên quan đến Thông báo
 abstract class NotificationEvent extends Equatable {
@@ -43,10 +47,18 @@ class DeleteNotification extends NotificationEvent {
 /// 5. Sự kiện nhận thông báo mới theo thời gian thực (Real-time)
 /// Dùng khi tích hợp với Firebase Cloud Messaging hoặc WebSockets
 class NotificationReceived extends NotificationEvent {
+<<<<<<< HEAD
   final dynamic notification; // Việt có thể thay bằng NotificationEntity khi đã xong phần Domain
+=======
+  final NotificationEntity notification;
+>>>>>>> origin/feature
 
   const NotificationReceived(this.notification);
 
   @override
   List<Object?> get props => [notification];
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/feature
