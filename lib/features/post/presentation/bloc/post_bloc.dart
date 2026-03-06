@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'post_event.dart';
 import 'post_state.dart';
@@ -61,10 +62,21 @@ class PostBloc extends Bloc<PostEvent, PostState> {
 
   /// 1. Xử lý Load bài viết
   Future<void> _onLoadPosts(LoadPosts event, Emitter<PostState> emit) async {
-    _currentUserId = event.userId;
+    final authUser = _currentAuth?.user;
+
+    // Nếu chuyển sang xem Feed chung (userId == null) hoặc Xem tường của chính mình,
+    // ta cần kiểm tra xem có phải là đổi Account không.
+    if (_currentUserId != authUser?.id && authUser != null) {
+      debugPrint(
+          "🔄 Phát hiện đổi tài khoản. Đang làm mới cache cho User: ${authUser.id}");
+      getPostsUseCase.repository.clearCache();
+    }
+
+    _currentUserId = authUser?.id;
     emit(PostLoading());
 
-    final localPosts = await localDataSource.getLastPosts();
+    // Luôn ưu tiên dùng ID của người đang đăng nhập để load cache local
+    final localPosts = await localDataSource.getLastPosts(userId: authUser?.id);
     if (localPosts.isNotEmpty) {
       emit(PostLoaded(posts: List<PostEntity>.from(localPosts)));
     }
@@ -76,10 +88,11 @@ class PostBloc extends Bloc<PostEvent, PostState> {
       },
       (posts) {
         emit(PostLoaded(posts: posts));
-        // CHỈ cache khi đây là lần tải toàn bộ (userId == null)
+        // CHỈ cache khi đây là lần tải toàn bộ (event.userId == null)
+        // và lưu vào phân vùng của người đang đăng nhập
         if (event.userId == null) {
           final models = posts.map((e) => PostModel.fromEntity(e)).toList();
-          localDataSource.cachePosts(models);
+          localDataSource.cachePosts(models, userId: authUser?.id);
         }
       },
     );

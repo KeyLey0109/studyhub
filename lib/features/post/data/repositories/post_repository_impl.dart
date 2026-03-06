@@ -18,14 +18,21 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
   PostRepositoryImpl({required this.localDataSource});
 
   // Tối ưu: Đảm bảo dữ liệu luôn được tải từ máy trước khi xử lý
-  Future<void> _ensurePostsLoaded() async {
+  Future<void> _ensurePostsLoaded({String? userId}) async {
     if (_postsCache.isEmpty) {
-      debugPrint("🔄 Cache trống, đang tải từ local storage...");
-      final cached = await localDataSource.getLastPosts();
+      debugPrint(
+          "🔄 Cache trống, đang tải từ local storage cho User: $userId...");
+      final cached = await localDataSource.getLastPosts(userId: userId);
       _postsCache = List<PostModel>.from(cached);
       debugPrint("✅ Đã tải ${_postsCache.length} bài viết vào cache.");
     }
     _ensureAdminPostExists();
+  }
+
+  @override
+  void clearCache() {
+    debugPrint("🧹 Đang xóa cache bài viết trong RAM.");
+    _postsCache = [];
   }
 
   void _ensureAdminPostExists() {
@@ -51,17 +58,18 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
   @override
   Future<Either<String, List<PostEntity>>> getPosts({String? userId}) async {
     try {
-      await _ensurePostsLoaded();
+      // Nếu userId là null, đây là Home Feed. Ta cần biết user hiện tại hoặc dùng legacy key.
+      // Trong PostBloc ta sẽ đảm bảo clearCache khi chuyển user.
+      await _ensurePostsLoaded(userId: userId);
 
       List<PostModel> filteredPosts = _postsCache;
       if (userId != null) {
         filteredPosts = _postsCache
             .where((p) => p.userId == userId || p.userId == 'admin')
             .toList();
-        debugPrint(
-            "Đang lọc ${filteredPosts.length} bài viết (bao gồm Admin) cho User: $userId");
       } else {
-        await localDataSource.cachePosts(_postsCache);
+        // Lưu lại cache cho Home Feed (phân vùng theo user nếu biết)
+        await localDataSource.cachePosts(_postsCache, userId: userId);
       }
 
       return Right(filteredPosts.map((e) => e as PostEntity).toList());
@@ -81,7 +89,7 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
     String? userAvatarUrl,
   }) async {
     try {
-      await _ensurePostsLoaded();
+      await _ensurePostsLoaded(userId: userId);
       final newPost = PostModel(
         id: "post_${DateTime.now().millisecondsSinceEpoch}",
         userId: userId,
@@ -95,10 +103,8 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
         comments: const [],
       );
 
-      debugPrint("Đang lưu bài viết mới vào bộ nhớ...");
       _postsCache.insert(0, newPost);
-      await localDataSource.cachePosts(_postsCache);
-      debugPrint("Lưu bài viết thành công. Tổng cộng: ${_postsCache.length}");
+      await localDataSource.cachePosts(_postsCache, userId: userId);
       return const Right(null);
     } catch (e) {
       debugPrint("Lỗi khi lưu bài viết: $e");
@@ -109,7 +115,7 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
   @override
   Future<Either<String, void>> toggleLike(String postId, String userId) async {
     try {
-      await _ensurePostsLoaded();
+      await _ensurePostsLoaded(userId: userId);
       final index = _postsCache.indexWhere((p) => p.id == postId);
 
       if (index != -1) {
@@ -120,7 +126,7 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
 
         _postsCache[index] =
             PostModel.fromEntity(post.copyWith(likedByUsers: newList));
-        await localDataSource.cachePosts(_postsCache);
+        await localDataSource.cachePosts(_postsCache, userId: post.userId);
       }
       return const Right(null);
     } catch (e) {
@@ -137,7 +143,7 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
     String? parentCommentId,
   }) async {
     try {
-      await _ensurePostsLoaded();
+      await _ensurePostsLoaded(userId: userId);
       final index = _postsCache.indexWhere((p) => p.id == postId);
       if (index == -1) return const Left("Không tìm thấy bài viết");
 
@@ -162,7 +168,7 @@ class PostRepositoryImpl implements PostRepository, CommentRepository {
         post.copyWith(comments: updatedComments),
       );
 
-      await localDataSource.cachePosts(_postsCache);
+      await localDataSource.cachePosts(_postsCache, userId: post.userId);
       return const Right(null);
     } catch (e) {
       debugPrint("Lỗi addComment: $e");
