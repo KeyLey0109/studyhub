@@ -1,5 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' as io;
 import 'package:video_player/video_player.dart';
 
 class PostVideoPlayer extends StatefulWidget {
@@ -20,16 +21,22 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
   @override
   void initState() {
     super.initState();
-    // Khởi tạo controller từ đường dẫn file trên máy sinh viên PYU
-    _controller = VideoPlayerController.file(File(widget.videoPath))
-      ..initialize().then((_) {
-        // Đảm bảo widget vẫn còn tồn tại trong tree trước khi setState
-        if (mounted) {
-          setState(() {
-            _isInitialized = true;
-          });
-        }
-      });
+    // Khởi tạo controller: Web dùng network (Blob URL), Mobile dùng file
+    if (kIsWeb) {
+      _controller =
+          VideoPlayerController.networkUrl(Uri.parse(widget.videoPath));
+    } else {
+      _controller = VideoPlayerController.file(io.File(widget.videoPath));
+    }
+
+    _controller.initialize().then((_) {
+      // Đảm bảo widget vẫn còn tồn tại trong tree trước khi setState
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
+    });
 
     // Tùy chọn: Tự động lặp lại video
     _controller.setLooping(true);
@@ -58,7 +65,9 @@ class _PostVideoPlayerState extends State<PostVideoPlayer> {
     return GestureDetector(
       onTap: () {
         setState(() {
-          _controller.value.isPlaying ? _controller.pause() : _controller.play();
+          _controller.value.isPlaying
+              ? _controller.pause()
+              : _controller.play();
         });
       },
       child: Container(

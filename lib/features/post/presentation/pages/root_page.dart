@@ -11,6 +11,8 @@ import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_state.dart';
 import '../../../notifications/presentation/bloc/notification_bloc.dart';
 import '../../../notifications/presentation/bloc/notification_state.dart';
+import '../bloc/post_bloc.dart';
+import '../bloc/post_event.dart';
 
 class RootPage extends StatefulWidget {
   const RootPage({super.key});
@@ -21,6 +23,15 @@ class RootPage extends StatefulWidget {
 
 class _RootPageState extends State<RootPage> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Đảm bảo mỗi khi vào RootPage (Đăng nhập mới), bẳng tin luôn được làm mới
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PostBloc>().add(const LoadPosts());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +53,8 @@ class _RootPageState extends State<RootPage> {
           children: [
             Icon(Icons.video_library_outlined, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text("Tính năng Video đang phát triển", style: TextStyle(color: Colors.grey)),
+            Text("Tính năng Video đang phát triển",
+                style: TextStyle(color: Colors.grey)),
           ],
         ),
       ),
@@ -68,7 +80,8 @@ class _RootPageState extends State<RootPage> {
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 0.5)),
+        border:
+            Border(top: BorderSide(color: Colors.grey.shade200, width: 0.5)),
       ),
       child: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -121,7 +134,9 @@ class _RootPageState extends State<RootPage> {
           isLabelVisible: unreadCount > 0,
           label: Text(unreadCount > 9 ? '9+' : '$unreadCount'),
           backgroundColor: Colors.red,
-          child: Icon(isActive ? Icons.notifications : Icons.notifications_none_outlined),
+          child: Icon(isActive
+              ? Icons.notifications
+              : Icons.notifications_none_outlined),
         );
       },
     );

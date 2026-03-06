@@ -22,6 +22,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
 
   @override
   Future<Either<String, void>> updateProfile({
+    required String userId,
     required String name,
     DateTime? birthDate,
     String? bio,
@@ -30,6 +31,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
     try {
       // Thực hiện cập nhật thông tin
       await remoteDataSource.updateProfile(
+        userId: userId,
         name: name,
         birthDate: birthDate,
         bio: bio,

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:equatable/equatable.dart';
 import '../../domain/entities/post_entity.dart';
 
@@ -12,26 +11,35 @@ abstract class PostEvent extends Equatable {
 /// 1. Tải danh sách bài viết
 /// Được gọi khi mở App, Refresh trang hoặc sau khi đăng bài thành công.
 class LoadPosts extends PostEvent {
-  const LoadPosts();
+  final String? userId;
+  const LoadPosts({this.userId});
+
+  @override
+  List<Object?> get props => [userId];
 }
 
 /// 2. Sự kiện đăng bài viết mới
-/// Chấp nhận File hình ảnh hoặc video từ bộ nhớ máy thông qua ImagePicker.
+/// Chấp nhận đường dẫn File hình ảnh hoặc video từ bộ nhớ máy thông qua ImagePicker.
 class CreatePostRequested extends PostEvent {
   final String content;
-  final String? userName;
-  final File? image;
-  final File? video;
+  final String userId;
+  final String userName;
+  final String? imagePath;
+  final String? videoPath;
+  final String? userAvatarUrl;
 
   const CreatePostRequested({
     required this.content,
-    this.userName,
-    this.image,
-    this.video,
+    required this.userId,
+    required this.userName,
+    this.imagePath,
+    this.videoPath,
+    this.userAvatarUrl,
   });
 
   @override
-  List<Object?> get props => [content, userName, image, video];
+  List<Object?> get props =>
+      [content, userId, userName, imagePath, videoPath, userAvatarUrl];
 }
 
 /// 3. Sự kiện Thích/Bỏ thích bài viết (Toggle Like)

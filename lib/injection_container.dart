@@ -15,10 +15,9 @@ import 'features/post/data/repositories/post_repository_impl.dart';
 import 'features/post/domain/repositories/post_repository.dart';
 import 'features/post/domain/usecases/get_post_usecase.dart';
 import 'features/post/domain/usecases/create_post_usecase.dart';
+import 'features/post/domain/usecases/toggle_like_usecase.dart';
 import 'features/post/presentation/bloc/post_bloc.dart';
 
-// --- IMPORT COMMENT ---
-import 'features/comment/data/repositories/comment_repository_impl.dart';
 import 'features/comment/domain/repositories/comment_repository.dart';
 import 'features/comment/domain/usecases/add_comment_usecase.dart';
 import 'features/comment/presentation/bloc/comment_bloc.dart';
@@ -37,38 +36,52 @@ import 'features/notifications/presentation/bloc/notification_bloc.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
-  //! 1. FEATURES - AUTH
+  //! 1. EXTERNAL (Khởi tạo trước để các lớp khác sử dụng)
+  final sharedPreferences = await SharedPreferences.getInstance();
+  sl.registerLazySingleton(() => sharedPreferences);
+
+  //! 2. FEATURES - AUTH
   sl.registerFactory(() => AuthBloc(loginUseCase: sl(), registerUseCase: sl()));
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUseCase(sl()));
-  // Ràng buộc interface AuthRepository với implementation AuthRepositoryImpl
-  sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(fakeDataSource: sl()));
+  sl.registerLazySingleton<AuthRepository>(
+      () => AuthRepositoryImpl(fakeDataSource: sl()));
   sl.registerLazySingleton(() => FakeAuthDataSource());
 
-  //! 2. FEATURES - POST
+  //! 3. FEATURES - POST
+  // CẬP NHẬT: Đăng ký PostBloc nhận thêm localDataSource để dứt điểm lỗi lưu cache
   sl.registerFactoryParam<PostBloc, AuthBloc, void>(
-        (authBloc, _) => PostBloc(
+    (authBloc, _) => PostBloc(
       getPostsUseCase: sl(),
       createPostUseCase: sl(),
+      toggleLikeUseCase: sl(),
+      addCommentUseCase: sl(),
+      localDataSource: sl(),
       authBloc: authBloc,
     ),
   );
+
   sl.registerLazySingleton(() => GetPostsUseCase(sl()));
   sl.registerLazySingleton(() => CreatePostUseCase(sl()));
-  // QUAN TRỌNG: Đảm bảo PostRepository được đăng ký đúng kiểu trừu tượng
-  sl.registerLazySingleton<PostRepository>(() => PostRepositoryImpl(localDataSource: sl()));
-  // Ràng buộc interface DataSource với implementation cụ thể
-  sl.registerLazySingleton<PostLocalDataSource>(() => PostLocalDataSourceImpl(sharedPreferences: sl()));
+  sl.registerLazySingleton(() => ToggleLikeUseCase(sl()));
 
-  //! 3. FEATURES - COMMENT
+  // Ràng buộc Repository và DataSource cho Post
+  sl.registerLazySingleton<PostRepository>(
+      () => PostRepositoryImpl(localDataSource: sl()));
+  sl.registerLazySingleton<PostLocalDataSource>(
+      () => PostLocalDataSourceImpl(sharedPreferences: sl()));
+
+  //! 4. FEATURES - COMMENT
   sl.registerFactory(() => CommentBloc(addCommentUseCase: sl()));
   sl.registerLazySingleton(() => AddCommentUseCase(sl()));
-  // Đảm bảo CommentRepository cũng được đăng ký tương tự
-  sl.registerLazySingleton<CommentRepository>(() => CommentRepositoryImpl(localDataSource: sl()));
 
-  //! 4. FEATURES - PROFILE
+  // Dùng chung PostRepository cho Comment để đồng bộ Cache
+  sl.registerLazySingleton<CommentRepository>(
+      () => sl<PostRepository>() as CommentRepository);
+
+  //! 5. FEATURES - PROFILE
   sl.registerFactoryParam<ProfileBloc, AuthBloc, void>(
-        (authBloc, _) => ProfileBloc(
+    (authBloc, _) => ProfileBloc(
       getProfileUseCase: sl(),
       updateProfileUseCase: sl(),
       authBloc: authBloc,
@@ -76,13 +89,11 @@ Future<void> init() async {
   );
   sl.registerLazySingleton(() => GetProfileUseCase(sl()));
   sl.registerLazySingleton(() => UpdateProfileUseCase(sl()));
-  sl.registerLazySingleton<ProfileRepository>(() => ProfileRepositoryImpl(remoteDataSource: sl()));
-  sl.registerLazySingleton<ProfileRemoteDataSource>(() => ProfileRemoteDataSourceImpl());
+  sl.registerLazySingleton<ProfileRepository>(
+      () => ProfileRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton<ProfileRemoteDataSource>(
+      () => ProfileRemoteDataSourceImpl(fakeAuthDataSource: sl()));
 
-  //! 5. FEATURES - NOTIFICATIONS
+  //! 6. FEATURES - NOTIFICATIONS
   sl.registerFactory(() => NotificationBloc());
-
-  //! 6. EXTERNAL
-  final sharedPreferences = await SharedPreferences.getInstance();
-  sl.registerLazySingleton(() => sharedPreferences);
 }

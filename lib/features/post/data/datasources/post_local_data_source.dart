@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/post_model.dart';
 
@@ -18,9 +19,8 @@ class PostLocalDataSourceImpl implements PostLocalDataSource {
   @override
   Future<void> cachePosts(List<PostModel> postsToCache) async {
     // Chuyển đổi sang JSON String List
-    final List<String> jsonPostList = postsToCache
-        .map((post) => json.encode(post.toJson()))
-        .toList();
+    final List<String> jsonPostList =
+        postsToCache.map((post) => json.encode(post.toJson())).toList();
 
     await sharedPreferences.setStringList(cachedPostsKey, jsonPostList);
   }
@@ -34,14 +34,19 @@ class PostLocalDataSourceImpl implements PostLocalDataSource {
     }
 
     try {
-      // Dùng map và toList để chuyển đổi dữ liệu
-      return jsonList.map((jsonString) {
-        return PostModel.fromJson(json.decode(jsonString) as Map<String, dynamic>);
-      }).toList();
+      final List<PostModel> posts = [];
+      for (final jsonString in jsonList) {
+        try {
+          posts.add(PostModel.fromJson(
+              json.decode(jsonString) as Map<String, dynamic>));
+        } catch (e) {
+          debugPrint("Lỗi parse bài viết: $e");
+          // Bỏ qua bài viết lỗi thay vì xóa hết
+        }
+      }
+      return posts;
     } catch (e) {
-      // Nếu dữ liệu không tương thích (ví dụ: thiếu trường comments mới)
-      // Xóa cache cũ để đảm bảo ứng dụng không bị lỗi subtype
-      await sharedPreferences.remove(cachedPostsKey);
+      debugPrint("Lỗi nghiêm trọng khi tải bài viết: $e");
       return [];
     }
   }

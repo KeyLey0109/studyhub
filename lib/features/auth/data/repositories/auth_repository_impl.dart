@@ -10,7 +10,8 @@ class AuthRepositoryImpl implements AuthRepository {
   AuthRepositoryImpl({required this.fakeDataSource});
 
   @override
-  Future<Either<String, UserEntity>> login(String email, String password) async {
+  Future<Either<String, UserEntity>> login(
+      String email, String password) async {
     try {
       // Gọi logic từ FakeAuthDataSource
       final userData = await fakeDataSource.login(email, password);
@@ -31,10 +32,10 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<String, UserEntity>> register(
       String name, String email, String password) async {
     try {
-      await fakeDataSource.register(name, email, password);
+      final newUser = await fakeDataSource.register(name, email, password);
 
-      // Sau khi đăng ký thành công, trả về một Entity tạm thời
-      return Right(UserEntity(id: 'temp', name: name, email: email));
+      // Sau khi đăng ký thành công, trả về một Entity thực
+      return Right(UserEntity(id: newUser['id']!, name: name, email: email));
     } catch (e) {
       return Left(e.toString().replaceAll('Exception: ', ''));
     }
@@ -42,7 +43,6 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
-
     await Future.delayed(const Duration(milliseconds: 500));
   }
 }

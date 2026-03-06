@@ -19,12 +19,14 @@ class UpdateProfileUseCase {
   /// - [Left]: Chuỗi thông báo lỗi nếu quá trình cập nhật thất bại
   /// - [Right]: Trả về void (null) nếu cập nhật thành công
   Future<Either<String, void>> call({
+    required String userId,
     required String name,
     DateTime? birthDate,
     String? bio,
     String? avatarPath,
   }) async {
     return await repository.updateProfile(
+      userId: userId,
       name: name,
       birthDate: birthDate,
       bio: bio,

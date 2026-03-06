@@ -9,6 +9,7 @@ abstract class ProfileRepository {
   /// Cập nhật thông tin cá nhân của người dùng hiện tại
   /// Bao gồm: Tên hiển thị, Ngày sinh, Tiểu sử và đường dẫn ảnh đại diện mới
   Future<Either<String, void>> updateProfile({
+    required String userId,
     required String name,
     DateTime? birthDate,
     String? bio,

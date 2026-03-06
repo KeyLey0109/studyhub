@@ -16,52 +16,58 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     required this.updateProfileUseCase,
     required this.authBloc,
   }) : super(ProfileInitial()) {
-
-    // 1. Xử lý tải thông tin Profile
+    // 1. Tải thông tin Profile (Hết lỗi đỏ khi chuyển trang)
     on<FetchProfileEvent>((event, emit) async {
       emit(ProfileLoading());
       final result = await getProfileUseCase(event.targetUserId);
 
       result.fold(
-            (failure) => emit(ProfileError(failure)),
-            (profile) => emit(ProfileLoaded(profile)),
+        (failure) => emit(ProfileError(failure.toString())),
+        (profile) => emit(ProfileLoaded(profile)),
       );
     });
 
-    // 2. Xử lý cập nhật thông tin (Tên, Ngày sinh, Bio, Ảnh)
+    // 2. Cập nhật thông tin chi tiết
     on<UpdateProfileDetailEvent>((event, emit) async {
-      emit(ProfileLoading());
-      final result = await updateProfileUseCase(
-        name: event.name,
-        birthDate: event.birthDate,
-        bio: event.bio,
-        avatarPath: event.avatarPath,
-      );
+      final currentState = state;
+      final authState = authBloc.state;
 
-      result.fold(
-            (failure) => emit(ProfileError(failure)),
-            (_) {
-          // Sau khi update thành công, tự động tải lại dữ liệu mới nhất
-          final authState = authBloc.state;
-          if (authState is AuthSuccess) {
+      if (currentState is ProfileLoaded && authState is AuthSuccess) {
+        emit(ProfileLoading());
+
+        final result = await updateProfileUseCase(
+          userId: authState.user.id,
+          name: event.name,
+          birthDate: event.birthDate,
+          bio: event.bio,
+          avatarPath: event.avatarPath,
+        );
+
+        result.fold(
+          (failure) => emit(ProfileError(failure.toString())),
+          (_) {
+            // Phát ra state thành công để UI biết đường pop/chuyển trang
+            emit(ProfileUpdateSuccess());
+
+            // Sau khi update thành công, tự reload bằng ID của trạng thái auth
             add(FetchProfileEvent(authState.user.id));
-          }
-        },
-      );
+          },
+        );
+      }
     });
 
-    // 3. Xử lý Kết bạn / Hủy kết bạn (Phong cách Facebook)
+    // 3. Xử lý Kết bạn (Facebook Style)
     on<ToggleFriendRequestEvent>((event, emit) async {
       final currentState = state;
       if (currentState is ProfileLoaded) {
-        // Tối ưu UI: Chuyển trạng thái nút bấm ngay lập tức (Optimistic UI)
+        // Cập nhật giao diện ngay lập tức (Optimistic UI)
         final updatedProfile = currentState.profile.copyWith(
           isPending: !currentState.profile.isPending,
         );
         emit(ProfileLoaded(updatedProfile));
 
-        // Gọi Repository thực tế (thông qua UseCase nếu Việt đã tạo ManageFriendshipUseCase)
-        // Ở đây mình tạm thời gọi reload để cập nhật từ Server
+        // Lưu ý cho Việt: Bạn nên gọi UseCase xử lý kết bạn thực tế ở đây
+        // Tạm thời gọi Fetch để đồng bộ lại dữ liệu từ Server/Local
         add(FetchProfileEvent(event.targetUserId));
       }
     });
