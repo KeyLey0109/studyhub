@@ -1,0 +1,400 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import '../../blocs/auth/auth_bloc.dart';
+import '../../blocs/post/post_bloc.dart';
+import '../../blocs/friend/friend_bloc.dart';
+import '../../blocs/notification/notification_bloc.dart';
+import '../../widgets/common/avatar_widget.dart';
+import '../../widgets/post/post_card_widget.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../domain/entities/user_entity.dart';
+import '../../../data/datasources/local/hive_local_datasource.dart';
+import '../../../injection_container.dart' as di;
+
+class ProfilePage extends StatefulWidget {
+  final String userId;
+  const ProfilePage({super.key, required this.userId});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool _localSent = false;
+  bool _localAccepted = false;
+  bool _localDeclined = false;
+  final _picker = ImagePicker();
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Đăng xuất'),
+        content: const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<AuthBloc>().add(LogoutEvent());
+              context.go('/login');
+            },
+            child: const Text('Đăng xuất', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updatePhoto(bool isAvatar, UserEntity user) async {
+    final file =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (file == null) return;
+
+    final updatedUser = isAvatar
+        ? user.copyWith(avatarUrl: file.path)
+        : user.copyWith(coverUrl: file.path);
+
+    // Save to Hive
+    final local = di.sl<HiveLocalDatasource>();
+    await local.saveUser(updatedUser);
+
+    // Update AuthBloc state so UI updates everywhere
+    if (mounted) {
+      context.read<AuthBloc>().add(UpdateUserEvent(updatedUser));
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final local = di.sl<HiveLocalDatasource>();
+    final profileUser = local.getUserById(widget.userId);
+    final auth = context.read<AuthBloc>().state;
+    final currentUser = auth is AuthAuthenticated ? auth.user : null;
+    final isMe = currentUser?.id == widget.userId;
+
+    // Use current user from auth state if it's "me" to ensure live updates
+    final displayUser = isMe ? currentUser! : (profileUser ?? currentUser!);
+
+    if (profileUser == null && !isMe) {
+      return const Scaffold(
+          body: Center(child: Text('Không tìm thấy người dùng')));
+    }
+
+    bool isFriend = currentUser?.isFriendWith(widget.userId) ?? false;
+    bool hasSent =
+        (currentUser?.hasSentRequestTo(widget.userId) ?? false) || _localSent;
+    bool hasPending =
+        currentUser?.hasPendingRequestFrom(widget.userId) ?? false;
+
+    if (_localAccepted) {
+      isFriend = true;
+      hasPending = false;
+    }
+    if (_localDeclined) {
+      hasPending = false;
+    }
+
+    return Scaffold(
+      backgroundColor: AppTheme.bgGrey,
+      body: CustomScrollView(slivers: [
+        // Cover photo + profile header
+        SliverAppBar(
+          expandedHeight: 220,
+          pinned: true,
+          backgroundColor: AppTheme.white,
+          elevation: 0,
+          leading: Center(
+            child: CircleAvatar(
+              backgroundColor: Colors.black45,
+              child: IconButton(
+                  icon: const Icon(Icons.arrow_back,
+                      color: Colors.white, size: 20),
+                  onPressed: () {
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/');
+                    }
+                  }),
+            ),
+          ),
+          actions: [
+            Center(
+              child: CircleAvatar(
+                backgroundColor: Colors.black45,
+                child: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_horiz,
+                      color: Colors.white, size: 20),
+                  onSelected: (value) {
+                    if (value == 'logout') _showLogoutDialog(context);
+                    if (value == 'update_cover' && isMe) {
+                      _updatePhoto(false, displayUser);
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    if (isMe) ...[
+                      const PopupMenuItem(
+                        value: 'update_cover',
+                        child: Row(children: [
+                          Icon(Icons.camera_alt_outlined, size: 20),
+                          SizedBox(width: 8),
+                          Text('Đổi ảnh bìa'),
+                        ]),
+                      ),
+                      const PopupMenuItem(
+                        value: 'logout',
+                        child: Row(children: [
+                          Icon(Icons.logout, color: Colors.red, size: 20),
+                          SizedBox(width: 8),
+                          Text('Đăng xuất',
+                              style: TextStyle(color: Colors.red)),
+                        ]),
+                      ),
+                    ],
+                    const PopupMenuItem(
+                        value: 'copy',
+                        child: Row(children: [
+                          Icon(Icons.link, size: 20),
+                          SizedBox(width: 8),
+                          Text('Sao chép liên kết'),
+                        ])),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          flexibleSpace: FlexibleSpaceBar(
+            background: Stack(fit: StackFit.expand, children: [
+              GestureDetector(
+                onTap: isMe ? () => _updatePhoto(false, displayUser) : null,
+                child: Container(
+                  color: Colors.grey.shade300,
+                  child: displayUser.coverUrl != null
+                      ? (displayUser.coverUrl!.startsWith('http')
+                          ? Image.network(displayUser.coverUrl!,
+                              fit: BoxFit.cover)
+                          : Image.file(File(displayUser.coverUrl!),
+                              fit: BoxFit.cover))
+                      : const DecoratedBox(
+                          decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                              Color(0xFF1877F2),
+                              Color(0xFF166FE5)
+                            ]))),
+                ),
+              ),
+              // Avatar positioned at bottom left
+              Positioned(
+                bottom: 0,
+                left: 16,
+                child: GestureDetector(
+                  onTap: isMe ? () => _updatePhoto(true, displayUser) : null,
+                  child: Container(
+                    decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4)),
+                    child: Stack(
+                      children: [
+                        AvatarWidget(
+                            name: displayUser.name,
+                            imageUrl: displayUser.avatarUrl,
+                            radius: 44),
+                        if (isMe)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: Colors.white, width: 2),
+                              ),
+                              child: const Icon(Icons.camera_alt,
+                                  size: 16, color: Colors.black87),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+        // Profile info
+        SliverToBoxAdapter(
+            child: Container(
+          color: AppTheme.white,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(displayUser.name,
+                style:
+                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+            const SizedBox(height: 4),
+            Text('${displayUser.friendIds.length} bạn bè',
+                style: const TextStyle(color: AppTheme.textGrey, fontSize: 14)),
+            if (displayUser.bio != null) ...[
+              const SizedBox(height: 8),
+              Text(displayUser.bio!, style: const TextStyle(fontSize: 15)),
+            ],
+            const SizedBox(height: 12),
+            if (isMe)
+              Row(children: [
+                Expanded(
+                    child: ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Thêm vào tin'),
+                  style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      backgroundColor: AppTheme.primaryBlue),
+                )),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Chỉnh sửa'),
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 40),
+                      foregroundColor: AppTheme.textDark,
+                      side: const BorderSide(color: AppTheme.borderColor)),
+                )),
+              ])
+            else
+              _buildFriendActions(context, displayUser, currentUser, isFriend,
+                  hasSent, hasPending),
+          ]),
+        )),
+        const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        BlocBuilder<PostBloc, PostState>(builder: (context, ps) {
+          if (ps is! PostLoaded) {
+            return const SliverToBoxAdapter(child: SizedBox());
+          }
+          final userPosts =
+              ps.posts.where((p) => p.authorId == widget.userId).toList();
+          if (userPosts.isEmpty) {
+            return SliverToBoxAdapter(
+                child: Container(
+                    color: AppTheme.white,
+                    padding: const EdgeInsets.all(24),
+                    child: const Center(
+                        child: Text('Chưa có bài viết nào',
+                            style: TextStyle(color: AppTheme.textGrey)))));
+          }
+          return SliverList(
+              delegate: SliverChildBuilderDelegate(
+            (context, i) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: PostCardWidget(
+                post: userPosts[i],
+                currentUserId: currentUser?.id ?? '',
+                onReact: (type) => context.read<PostBloc>().add(
+                    ReactToPostEvent(
+                        postId: userPosts[i].id,
+                        userId: currentUser?.id ?? '',
+                        reactionType: type)),
+                onComment: () => context.push('/post/${userPosts[i].id}'),
+                onTapAuthor: () {},
+              ),
+            ),
+            childCount: userPosts.length,
+          ));
+        }),
+      ]),
+    );
+  }
+
+  Widget _buildFriendActions(BuildContext context, UserEntity profileUser,
+      UserEntity? currentUser, bool isFriend, bool hasSent, bool hasPending) {
+    if (isFriend) {
+      return Row(children: [
+        Expanded(
+            child: ElevatedButton.icon(
+                onPressed: () => context.push('/chat/${profileUser.id}'),
+                icon: const Icon(Icons.messenger_outline),
+                label: const Text('Nhắn tin'))),
+        const SizedBox(width: 8),
+        Expanded(
+            child: OutlinedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.people_outline),
+                label: const Text('Bạn bè'),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textDark))),
+      ]);
+    }
+    if (hasPending) {
+      return Row(children: [
+        Expanded(
+            child: ElevatedButton(
+                onPressed: () {
+                  setState(() => _localAccepted = true);
+                  context.read<FriendBloc>().add(RespondFriendRequestEvent(
+                      fromId: profileUser.id,
+                      toId: currentUser!.id,
+                      accept: true));
+                  context
+                      .read<NotificationBloc>()
+                      .add(LoadNotificationsEvent(currentUser.id));
+                },
+                child: const Text('Chấp nhận'))),
+        const SizedBox(width: 8),
+        Expanded(
+            child: OutlinedButton(
+                onPressed: () {
+                  setState(() => _localDeclined = true);
+                  context.read<FriendBloc>().add(RespondFriendRequestEvent(
+                      fromId: profileUser.id,
+                      toId: currentUser!.id,
+                      accept: false));
+                },
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.textDark),
+                child: const Text('Từ chối'))),
+      ]);
+    }
+
+    return Row(children: [
+      Expanded(
+          child: ElevatedButton.icon(
+        onPressed: hasSent
+            ? null
+            : () {
+                setState(() => _localSent = true);
+                context.read<FriendBloc>().add(SendFriendRequestEvent(
+                    fromId: currentUser!.id, toId: profileUser.id));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Đã gửi lời mời kết bạn'),
+                    behavior: SnackBarBehavior.floating));
+              },
+        icon: Icon(hasSent ? Icons.check : Icons.person_add),
+        label: Text(hasSent ? 'Đã gửi lời mời' : 'Thêm bạn bè'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: hasSent ? Colors.grey : AppTheme.primaryBlue,
+        ),
+      )),
+      const SizedBox(width: 8),
+      Expanded(
+          child: OutlinedButton.icon(
+              onPressed: () => context.push('/chat/${profileUser.id}'),
+              icon: const Icon(Icons.messenger_outline),
+              label: const Text('Nhắn tin'),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.textDark))),
+    ]);
+  }
+}

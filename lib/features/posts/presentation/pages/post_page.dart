@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
 
+// Đảm bảo import đúng các file Bloc để tránh lỗi "isn't defined"
 import '../bloc/post_bloc.dart';
 import '../bloc/post_event.dart';
 import '../bloc/post_state.dart';
@@ -16,262 +14,94 @@ class PostPage extends StatefulWidget {
 }
 
 class _PostPageState extends State<PostPage> {
-  final TextEditingController _controller = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
-
-  File? _selectedImage;
-  File? _selectedVideo;
-
   @override
   void initState() {
     super.initState();
+    // Tự động kích hoạt tải bài viết khi khởi tạo trang
     context.read<PostBloc>().add(LoadPostsEvent());
-  }
-
-  Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        _selectedImage = File(picked.path);
-        _selectedVideo = null;
-      });
-    }
-  }
-
-  Future<void> _pickVideo() async {
-    final picked = await _picker.pickVideo(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        _selectedVideo = File(picked.path);
-        _selectedImage = null;
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1877F2),
-        title: const Text(
-          "StudyHub",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text("Bảng tin StudyHub", style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
+        elevation: 0,
       ),
-      body: Column(
-        children: [
-          _buildCreatePostBox(),
-          Expanded(
-            child: BlocBuilder<PostBloc, PostState>(
-              builder: (context, state) {
-                return ListView.builder(
-                  itemCount: state.posts.length,
-                  itemBuilder: (context, index) {
-                    final post = state.posts[index];
-                    return _buildPostCard(post);
-                  },
-                );
-              },
-            ),
-          ),
-        ],
+      // Sử dụng BlocBuilder để lắng nghe trạng thái từ PostBloc
+      body: BlocBuilder<PostBloc, PostState>(
+        builder: (context, state) {
+          if (state is PostLoading) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (state is PostLoaded) {
+            return RefreshIndicator(
+              onRefresh: () async => context.read<PostBloc>().add(LoadPostsEvent()),
+              child: ListView.builder(
+                padding: const EdgeInsets.only(top: 8, bottom: 80),
+                itemCount: state.posts.length,
+                itemBuilder: (context, index) {
+                  final post = state.posts[index];
+                  return _buildPostCard(post);
+                },
+              ),
+            );
+          } else if (state is PostError) {
+            // Hiển thị lỗi từ PostState.message
+            return Center(
+              child: Text(state.message, style: const TextStyle(color: Colors.red)),
+            );
+          }
+          return const Center(child: Text("Chưa có bài viết nào được đăng."));
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Logic điều hướng đến trang tạo bài viết mới của Việt
+        },
+        child: const Icon(Icons.edit_note_rounded),
       ),
     );
   }
 
-  Widget _buildCreatePostBox() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      color: Colors.white,
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 20,
-                backgroundColor: Colors.grey,
-                child: Icon(Icons.person, color: Colors.white),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 15),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F2F5),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: "What's on your mind?",
-                      border: InputBorder.none,
-                    ),
-                  ),
+  // Widget thẻ bài viết tối giản (Không còn nút hay danh sách bình luận)
+  Widget _buildPostCard(dynamic post) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.blue.withValues(alpha: 0.1), // Chuẩn mới
+                  child: Text(post.authorName[0].toUpperCase()),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.send, color: Colors.blue),
-                onPressed: () {
-                  if (_controller.text.isNotEmpty ||
-                      _selectedImage != null ||
-                      _selectedVideo != null) {
-                    context.read<PostBloc>().add(
-                      CreatePostEvent(
-                        _controller.text,
-                        imagePath: _selectedImage?.path,
-                        videoPath: _selectedVideo?.path,
-                      ),
-                    );
-
-                    _controller.clear();
-                    setState(() {
-                      _selectedImage = null;
-                      _selectedVideo = null;
-                    });
-                  }
-                },
-              )
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              TextButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.image, color: Colors.green),
-                label: const Text("Photo"),
-              ),
-              TextButton.icon(
-                onPressed: _pickVideo,
-                icon: const Icon(Icons.video_call, color: Colors.red),
-                label: const Text("Video"),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPostCard(post) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.grey,
-              child: Icon(Icons.person, color: Colors.white),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      post.authorName,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const Text("Vừa xong", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
+                ),
+              ],
             ),
-            title: const Text("User Name",
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text("Just now"),
-          ),
-          if (post.content.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              child: Text(post.content),
+            const SizedBox(height: 16),
+            Text(
+              post.content,
+              style: const TextStyle(fontSize: 16, height: 1.4),
             ),
-          if (post.imagePath != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Image.file(
-                File(post.imagePath!),
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-          if (post.videoPath != null)
-            SizedBox(
-              height: 250,
-              child: VideoPlayerWidget(path: post.videoPath!),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-            child: Text("${post.likeCount} likes",
-                style: const TextStyle(color: Colors.grey)),
-          ),
-          const Divider(height: 1),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              TextButton.icon(
-                onPressed: () {
-                  context
-                      .read<PostBloc>()
-                      .add(LikePostEvent(post.id));
-                },
-                icon: const Icon(Icons.thumb_up_alt_outlined),
-                label: const Text("Like"),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class VideoPlayerWidget extends StatefulWidget {
-  final String path;
-
-  const VideoPlayerWidget({super.key, required this.path});
-
-  @override
-  State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
-}
-
-class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = VideoPlayerController.file(File(widget.path))
-      ..initialize().then((_) => setState(() {}));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_controller.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        AspectRatio(
-          aspectRatio: _controller.value.aspectRatio,
-          child: VideoPlayer(_controller),
+          ],
         ),
-        IconButton(
-          icon: Icon(
-            _controller.value.isPlaying
-                ? Icons.pause
-                : Icons.play_arrow,
-            size: 50,
-            color: Colors.white,
-          ),
-          onPressed: () {
-            setState(() {
-              _controller.value.isPlaying
-                  ? _controller.pause()
-                  : _controller.play();
-            });
-          },
-        )
-      ],
+      ),
     );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }
