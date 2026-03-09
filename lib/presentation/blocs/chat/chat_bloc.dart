@@ -31,9 +31,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         event.currentUserId,
         event.otherUserId,
       );
-      if (!isSilent || localMsgs.isNotEmpty) {
-        emit(ChatLoaded(localMsgs));
-      }
 
       // Fetch from Supabase
       try {
@@ -45,9 +42,46 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
           await localDatasource.saveMessage(msg);
         }
 
-        if (!isClosed) emit(ChatLoaded(remoteMsgs));
+        // Combine and deduplicate
+        // Rule: If a local message has a UUID (likely optimistic) but matches
+        // a remote message's content and sender, prefer the remote one.
+        final List<MessageEntity> finalMessages = [...remoteMsgs];
+        final remoteContents =
+            remoteMsgs.map((m) => '${m.senderId}_${m.content}').toSet();
+
+        for (var lm in localMsgs) {
+          final key = '${lm.senderId}_${lm.content}';
+          // If not from remote and doesn't match a remote content-key, add it (likely pending or unique local)
+          if (!remoteMsgs.any((rm) => rm.id == lm.id) &&
+              !remoteContents.contains(key)) {
+            finalMessages.add(lm);
+          }
+        }
+
+        finalMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+        // Only emit if changed to avoid flicker
+        bool hasChanged = true;
+        if (state is ChatLoaded) {
+          final current = (state as ChatLoaded).messages;
+          if (current.length == finalMessages.length) {
+            hasChanged = false;
+            for (int i = 0; i < current.length; i++) {
+              if (current[i] != finalMessages[i]) {
+                hasChanged = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (hasChanged && !isClosed) {
+          emit(ChatLoaded(finalMessages));
+        }
       } catch (_) {
-        // Silently fail network error, keep showing local
+        if (!isSilent && localMsgs.isNotEmpty) {
+          emit(ChatLoaded(localMsgs));
+        }
       }
     } catch (e) {
       if (state is! ChatLoaded) {
