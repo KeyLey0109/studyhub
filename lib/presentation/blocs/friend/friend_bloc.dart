@@ -113,6 +113,7 @@ class FriendBloc extends Bloc<FriendEvent, FriendState> {
       LoadFriendRequestsEvent event, Emitter<FriendState> emit) async {
     try {
       final requests = await getFriendRequestsUseCase(event.userId);
+      if (isClosed) return;
       final current =
           state is FriendLoaded ? state as FriendLoaded : FriendLoaded();
       emit(current.copyWith(requests: requests));
@@ -147,22 +148,28 @@ class FriendBloc extends Bloc<FriendEvent, FriendState> {
 
   Future<void> _onRespond(
       RespondFriendRequestEvent event, Emitter<FriendState> emit) async {
+    final current =
+        state is FriendLoaded ? state as FriendLoaded : FriendLoaded();
+
+    // Optimistic UI Update
+    final requests =
+        current.requests.where((u) => u.id != event.fromId).toList();
+    final friends = event.accept
+        ? [
+            ...current.friends,
+            ...current.requests.where((u) => u.id == event.fromId)
+          ]
+        : current.friends;
+
+    emit(current.copyWith(requests: requests, friends: friends));
+
     try {
       await acceptRequestUseCase(
           fromId: event.fromId, toId: event.toId, accept: event.accept);
-      final current =
-          state is FriendLoaded ? state as FriendLoaded : FriendLoaded();
-      final requests =
-          current.requests.where((u) => u.id != event.fromId).toList();
-      final friends = event.accept
-          ? [
-              ...current.friends,
-              ...current.requests.where((u) => u.id == event.fromId)
-            ]
-          : current.friends;
-      emit(current.copyWith(requests: requests, friends: friends));
       di.sl<AuthBloc>().add(CheckAuthEvent()); // Sync global user state
     } catch (e) {
+      // Revert on failure
+      emit(current);
       emit(FriendError(e.toString()));
     }
   }

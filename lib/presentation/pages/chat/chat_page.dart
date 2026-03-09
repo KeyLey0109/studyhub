@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/theme/app_theme.dart';
@@ -22,6 +23,7 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   late String _currentUserId;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
@@ -32,11 +34,19 @@ class _ChatPageState extends State<ChatPage> {
       context
           .read<ChatBloc>()
           .add(LoadMessagesEvent(_currentUserId, widget.otherUserId));
+
+      // Poll for new messages every 3 seconds to fake real-time sync
+      _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+        context
+            .read<ChatBloc>()
+            .add(LoadMessagesEvent(_currentUserId, widget.otherUserId));
+      });
     }
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _msgController.dispose();
     _scrollController.dispose();
     super.dispose();

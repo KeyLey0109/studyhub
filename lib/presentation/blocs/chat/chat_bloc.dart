@@ -1,7 +1,9 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../data/datasources/local/hive_local_datasource.dart';
+import '../../../../data/datasources/remote/supabase_remote_datasource.dart';
 import '../../../../domain/entities/message_entity.dart';
+import '../../../../injection_container.dart' as di;
 import 'chat_event.dart';
 import 'chat_state.dart';
 
@@ -14,14 +16,34 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<SendMessageEvent>(_onSendMessage);
   }
 
-  void _onLoadMessages(LoadMessagesEvent event, Emitter<ChatState> emit) {
+  Future<void> _onLoadMessages(
+      LoadMessagesEvent event, Emitter<ChatState> emit) async {
     try {
-      emit(ChatLoading());
-      final messages = localDatasource.getMessagesBetween(
+      if (state is! ChatLoaded) {
+        emit(ChatLoading());
+      }
+      // Fast load from local
+      final localMsgs = localDatasource.getMessagesBetween(
         event.currentUserId,
         event.otherUserId,
       );
-      emit(ChatLoaded(messages));
+      emit(ChatLoaded(localMsgs));
+
+      // Fetch from Supabase
+      try {
+        final remote = di.sl<SupabaseRemoteDatasource>();
+        final remoteMsgs =
+            await remote.getMessages(event.currentUserId, event.otherUserId);
+
+        // Save to local cache
+        for (final msg in remoteMsgs) {
+          await localDatasource.saveMessage(msg);
+        }
+
+        if (!isClosed) emit(ChatLoaded(remoteMsgs));
+      } catch (_) {
+        // Silently fail network error, keep showing local
+      }
     } catch (e) {
       emit(ChatError(e.toString()));
     }
@@ -30,6 +52,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   Future<void> _onSendMessage(
       SendMessageEvent event, Emitter<ChatState> emit) async {
     try {
+      // Optimistic update
       final newMessage = MessageEntity(
         id: _uuid.v4(),
         senderId: event.currentUserId,
@@ -46,6 +69,12 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       } else {
         emit(ChatLoaded([newMessage]));
       }
+
+      // Send to Supabase
+      final remote = di.sl<SupabaseRemoteDatasource>();
+      final savedRemote = await remote.sendMessage(
+          event.currentUserId, event.otherUserId, event.content);
+      await localDatasource.saveMessage(savedRemote);
     } catch (e) {
       emit(ChatError(e.toString()));
     }
