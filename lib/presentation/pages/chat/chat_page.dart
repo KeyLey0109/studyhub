@@ -9,6 +9,8 @@ import '../../blocs/chat/chat_state.dart';
 import '../../../data/datasources/local/hive_local_datasource.dart';
 import '../../../injection_container.dart' as di;
 import '../../widgets/common/avatar_widget.dart';
+import '../../../domain/entities/user_entity.dart';
+import '../../../data/datasources/remote/supabase_remote_datasource.dart';
 
 class ChatPage extends StatefulWidget {
   final String otherUserId;
@@ -24,6 +26,7 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   late String _currentUserId;
   Timer? _refreshTimer;
+  UserEntity? _otherUser;
 
   @override
   void initState() {
@@ -31,6 +34,7 @@ class _ChatPageState extends State<ChatPage> {
     final authState = context.read<AuthBloc>().state;
     if (authState is AuthAuthenticated) {
       _currentUserId = authState.user.id;
+      _loadOtherUserInfo();
       context
           .read<ChatBloc>()
           .add(LoadMessagesEvent(_currentUserId, widget.otherUserId));
@@ -41,6 +45,23 @@ class _ChatPageState extends State<ChatPage> {
             .read<ChatBloc>()
             .add(LoadMessagesEvent(_currentUserId, widget.otherUserId));
       });
+    }
+  }
+
+  Future<void> _loadOtherUserInfo() async {
+    final local = di.sl<HiveLocalDatasource>();
+    final user = local.getUserById(widget.otherUserId);
+    if (user != null) {
+      setState(() => _otherUser = user);
+    } else {
+      try {
+        final remote = di.sl<SupabaseRemoteDatasource>();
+        final fetchedUser = await remote.getUserById(widget.otherUserId);
+        if (fetchedUser != null) {
+          await local.saveUser(fetchedUser);
+          if (mounted) setState(() => _otherUser = fetchedUser);
+        }
+      } catch (_) {}
     }
   }
 
@@ -77,26 +98,25 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
-    final local = di.sl<HiveLocalDatasource>();
-    final otherUser = local.getUserById(widget.otherUserId);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Row(
           children: [
-            if (otherUser != null)
-              AvatarWidget(
-                name: otherUser.name,
-                imageUrl: otherUser.avatarUrl,
-                radius: 16,
-              ),
+            AvatarWidget(
+              name: _otherUser?.name ?? 'User',
+              imageUrl: _otherUser?.avatarUrl,
+              radius: 16,
+            ),
             const SizedBox(width: 10),
-            Text(
-              otherUser?.name ?? 'Người dùng',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            Expanded(
+              child: Text(
+                _otherUser?.name ?? 'Người dùng',
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

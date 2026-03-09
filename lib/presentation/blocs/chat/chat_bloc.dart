@@ -22,7 +22,8 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   Future<void> _onLoadMessages(
       LoadMessagesEvent event, Emitter<ChatState> emit) async {
     try {
-      if (state is! ChatLoading) {
+      final isSilent = state is ChatLoaded;
+      if (!isSilent) {
         emit(ChatLoading());
       }
       // Fast load from local
@@ -30,7 +31,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         event.currentUserId,
         event.otherUserId,
       );
-      emit(ChatLoaded(localMsgs));
+      if (!isSilent || localMsgs.isNotEmpty) {
+        emit(ChatLoaded(localMsgs));
+      }
 
       // Fetch from Supabase
       try {
@@ -47,7 +50,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         // Silently fail network error, keep showing local
       }
     } catch (e) {
-      emit(ChatError(e.toString()));
+      if (state is! ChatLoaded) {
+        emit(ChatError(e.toString()));
+      }
     }
   }
 
@@ -55,7 +60,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       SendMessageEvent event, Emitter<ChatState> emit) async {
     try {
       // Optimistic update
-      final newMessage = MessageEntity(
+      final optimisticMessage = MessageEntity(
         id: _uuid.v4(),
         senderId: event.currentUserId,
         receiverId: event.otherUserId,
@@ -63,19 +68,28 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         createdAt: DateTime.now(),
       );
 
-      await localDatasource.saveMessage(newMessage);
+      await localDatasource.saveMessage(optimisticMessage);
 
       if (state is ChatLoaded) {
         final currentMessages = (state as ChatLoaded).messages;
-        emit(ChatLoaded([...currentMessages, newMessage]));
+        emit(ChatLoaded([...currentMessages, optimisticMessage]));
       } else {
-        emit(ChatLoaded([newMessage]));
+        emit(ChatLoaded([optimisticMessage]));
       }
 
       // Send to Supabase
       final savedRemote = await remoteDatasource.sendMessage(
           event.currentUserId, event.otherUserId, event.content);
       await localDatasource.saveMessage(savedRemote);
+
+      // Replace optimistic with real one (to get the real ID and exact timestamp)
+      if (state is ChatLoaded) {
+        final currentMessages = (state as ChatLoaded).messages;
+        final updatedMessages = currentMessages
+            .map((m) => m.id == optimisticMessage.id ? savedRemote : m)
+            .toList();
+        emit(ChatLoaded(updatedMessages));
+      }
     } catch (e) {
       emit(ChatError(e.toString()));
     }

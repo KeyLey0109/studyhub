@@ -4,6 +4,7 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../domain/usecases/friend/send_friend_request_usecase.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../../injection_container.dart' as di;
+import '../../../data/datasources/local/hive_local_datasource.dart';
 
 // Events
 abstract class FriendEvent extends Equatable {
@@ -80,6 +81,7 @@ class FriendBloc extends Bloc<FriendEvent, FriendState> {
   final GetFriendRequestsUseCase getFriendRequestsUseCase;
   final GetFriendsUseCase getFriendsUseCase;
   final GetSuggestionsUseCase getSuggestionsUseCase;
+  final HiveLocalDatasource localDatasource;
 
   FriendBloc({
     required this.sendRequestUseCase,
@@ -87,6 +89,7 @@ class FriendBloc extends Bloc<FriendEvent, FriendState> {
     required this.getFriendRequestsUseCase,
     required this.getFriendsUseCase,
     required this.getSuggestionsUseCase,
+    required this.localDatasource,
   }) : super(FriendInitial()) {
     on<LoadFriendsEvent>(_onLoadFriends);
     on<LoadFriendRequestsEvent>(_onLoadRequests);
@@ -102,6 +105,12 @@ class FriendBloc extends Bloc<FriendEvent, FriendState> {
       final friends = await getFriendsUseCase(event.userId);
       final requests = await getFriendRequestsUseCase(event.userId);
       final suggestions = await getSuggestionsUseCase(event.userId);
+
+      // Cache all fetched users for other parts of the app (like Chat)
+      for (var u in [...friends, ...requests, ...suggestions]) {
+        await localDatasource.saveUser(u);
+      }
+
       emit(FriendLoaded(
           friends: friends, requests: requests, suggestions: suggestions));
     } catch (e) {
