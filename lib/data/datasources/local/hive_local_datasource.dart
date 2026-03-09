@@ -180,40 +180,35 @@ class HiveLocalDatasource {
         'content': p.content,
         'mediaUrls': p.mediaUrls,
         'mediaTypes': p.mediaTypes,
-        'reactions': p.reactions
-            .map((r) => {'userId': r.userId, 'type': r.type.name})
-            .toList(),
+        'likedByIds': p.likedByIds,
         'comments': p.comments.map((c) => _commentToJson(c)).toList(),
         'createdAt': p.createdAt.toIso8601String(),
         'isPublic': p.isPublic,
         'sharedPost': p.sharedPost != null ? _postToJson(p.sharedPost!) : null,
       };
 
-  PostEntity _postFromJson(Map<String, dynamic> m) => PostEntity(
-        id: m['id'],
-        authorId: m['authorId'],
-        authorName: m['authorName'],
-        authorAvatar: m['authorAvatar'],
-        content: m['content'],
-        mediaUrls: List<String>.from(m['mediaUrls'] ?? []),
-        mediaTypes: List<String>.from(m['mediaTypes'] ?? []),
-        reactions: (m['reactions'] as List? ?? []).map((r) {
-          final map = Map<String, dynamic>.from(r);
-          return ReactionEntity(
-            userId: map['userId'],
-            type: ReactionType.values.firstWhere((t) => t.name == map['type'],
-                orElse: () => ReactionType.like),
-          );
-        }).toList(),
-        comments: (m['comments'] as List? ?? [])
-            .map((c) => _commentFromJson(Map<String, dynamic>.from(c)))
-            .toList(),
-        createdAt: DateTime.parse(m['createdAt']),
-        isPublic: m['isPublic'] ?? true,
-        sharedPost: m['sharedPost'] != null
-            ? _postFromJson(Map<String, dynamic>.from(m['sharedPost']))
-            : null,
-      );
+  PostEntity _postFromJson(Map<String, dynamic> m) {
+    final authorId = m['authorId'];
+    final author = getUserById(authorId);
+    return PostEntity(
+      id: m['id'],
+      authorId: authorId,
+      authorName: author?.name ?? m['authorName'],
+      authorAvatar: author?.avatarUrl ?? m['authorAvatar'],
+      content: m['content'],
+      mediaUrls: List<String>.from(m['mediaUrls'] ?? []),
+      mediaTypes: List<String>.from(m['mediaTypes'] ?? []),
+      likedByIds: List<String>.from(m['likedByIds'] ?? []),
+      comments: (m['comments'] as List? ?? [])
+          .map((c) => _commentFromJson(Map<String, dynamic>.from(c)))
+          .toList(),
+      createdAt: DateTime.parse(m['createdAt']),
+      isPublic: m['isPublic'] ?? true,
+      sharedPost: m['sharedPost'] != null
+          ? _postFromJson(Map<String, dynamic>.from(m['sharedPost']))
+          : null,
+    );
+  }
 
   Map<String, dynamic> _commentToJson(CommentEntity c) => {
         'id': c.id,
@@ -228,20 +223,24 @@ class HiveLocalDatasource {
         'createdAt': c.createdAt.toIso8601String(),
       };
 
-  CommentEntity _commentFromJson(Map<String, dynamic> m) => CommentEntity(
-        id: m['id'],
-        postId: m['postId'],
-        parentId: m['parentId'],
-        authorId: m['authorId'],
-        authorName: m['authorName'],
-        authorAvatar: m['authorAvatar'],
-        content: m['content'],
-        likedByIds: List<String>.from(m['likedByIds'] ?? []),
-        replies: (m['replies'] as List? ?? [])
-            .map((r) => _commentFromJson(Map<String, dynamic>.from(r)))
-            .toList(),
-        createdAt: DateTime.parse(m['createdAt']),
-      );
+  CommentEntity _commentFromJson(Map<String, dynamic> m) {
+    final authorId = m['authorId'];
+    final author = getUserById(authorId);
+    return CommentEntity(
+      id: m['id'],
+      postId: m['postId'],
+      parentId: m['parentId'],
+      authorId: authorId,
+      authorName: author?.name ?? m['authorName'],
+      authorAvatar: author?.avatarUrl ?? m['authorAvatar'],
+      content: m['content'],
+      likedByIds: List<String>.from(m['likedByIds'] ?? []),
+      replies: (m['replies'] as List? ?? [])
+          .map((r) => _commentFromJson(Map<String, dynamic>.from(r)))
+          .toList(),
+      createdAt: DateTime.parse(m['createdAt']),
+    );
+  }
 
   Map<String, dynamic> _notifToJson(NotificationEntity n) => {
         'id': n.id,
@@ -256,19 +255,22 @@ class HiveLocalDatasource {
         'createdAt': n.createdAt.toIso8601String(),
       };
 
-  NotificationEntity _notifFromJson(Map<String, dynamic> m) =>
-      NotificationEntity(
-        id: m['id'],
-        toUserId: m['toUserId'],
-        fromUserId: m['fromUserId'],
-        fromUserName: m['fromUserName'],
-        fromUserAvatar: m['fromUserAvatar'],
-        type: NotificationType.values.firstWhere((t) => t.name == m['type']),
-        postId: m['postId'],
-        message: m['message'],
-        isRead: m['isRead'],
-        createdAt: DateTime.parse(m['createdAt']),
-      );
+  NotificationEntity _notifFromJson(Map<String, dynamic> m) {
+    final fromUserId = m['fromUserId'];
+    final author = getUserById(fromUserId);
+    return NotificationEntity(
+      id: m['id'],
+      toUserId: m['toUserId'],
+      fromUserId: fromUserId,
+      fromUserName: author?.name ?? m['fromUserName'],
+      fromUserAvatar: author?.avatarUrl ?? m['fromUserAvatar'],
+      type: NotificationType.values.firstWhere((t) => t.name == m['type']),
+      postId: m['postId'],
+      message: m['message'],
+      isRead: m['isRead'],
+      createdAt: DateTime.parse(m['createdAt']),
+    );
+  }
 
   Map<String, dynamic> _messageToJson(MessageEntity m) => {
         'id': m.id,

@@ -1,13 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-enum ReactionType { like, love, haha, wow, sad, angry }
-
-class ReactionEntity {
-  final String userId;
-  final ReactionType type;
-  const ReactionEntity({required this.userId, required this.type});
-}
-
 class PostEntity extends Equatable {
   final String id;
   final String authorId;
@@ -16,7 +8,7 @@ class PostEntity extends Equatable {
   final String? content;
   final List<String> mediaUrls;
   final List<String> mediaTypes; // 'image' or 'video' per item
-  final List<ReactionEntity> reactions;
+  final List<String> likedByIds;
   final List<CommentEntity> comments;
   final DateTime createdAt;
   final bool isPublic;
@@ -30,32 +22,17 @@ class PostEntity extends Equatable {
     this.content,
     this.mediaUrls = const [],
     this.mediaTypes = const [],
-    this.reactions = const [],
+    this.likedByIds = const [],
     this.comments = const [],
     required this.createdAt,
     this.isPublic = true,
     this.sharedPost,
   });
 
-  int get likeCount => reactions.length;
+  int get likeCount => likedByIds.length;
   int get commentCount => comments.length;
 
-  bool isLikedBy(String userId) => reactions.any((r) => r.userId == userId);
-  ReactionType? reactionOf(String userId) {
-    try {
-      return reactions.firstWhere((r) => r.userId == userId).type;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Map<ReactionType, int> get reactionCounts {
-    final map = <ReactionType, int>{};
-    for (final r in reactions) {
-      map[r.type] = (map[r.type] ?? 0) + 1;
-    }
-    return map;
-  }
+  bool isLikedBy(String userId) => likedByIds.contains(userId);
 
   PostEntity copyWith({
     String? id,
@@ -65,7 +42,7 @@ class PostEntity extends Equatable {
     String? content,
     List<String>? mediaUrls,
     List<String>? mediaTypes,
-    List<ReactionEntity>? reactions,
+    List<String>? likedByIds,
     List<CommentEntity>? comments,
     DateTime? createdAt,
     bool? isPublic,
@@ -79,7 +56,7 @@ class PostEntity extends Equatable {
         content: content ?? this.content,
         mediaUrls: mediaUrls ?? this.mediaUrls,
         mediaTypes: mediaTypes ?? this.mediaTypes,
-        reactions: reactions ?? this.reactions,
+        likedByIds: likedByIds ?? this.likedByIds,
         comments: comments ?? this.comments,
         createdAt: createdAt ?? this.createdAt,
         isPublic: isPublic ?? this.isPublic,
@@ -92,7 +69,7 @@ class PostEntity extends Equatable {
         authorId,
         content,
         mediaUrls,
-        reactions,
+        likedByIds,
         comments,
         createdAt,
         sharedPost

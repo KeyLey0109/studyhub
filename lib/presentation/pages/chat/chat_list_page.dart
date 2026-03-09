@@ -5,6 +5,7 @@ import '../../blocs/auth/auth_bloc.dart';
 import '../../../domain/entities/user_entity.dart';
 import '../../../data/datasources/local/hive_local_datasource.dart';
 import '../../../injection_container.dart' as di;
+import '../../widgets/common/avatar_widget.dart';
 
 class ChatListPage extends StatelessWidget {
   const ChatListPage({super.key});
@@ -50,14 +51,10 @@ class ChatListPage extends StatelessWidget {
               itemBuilder: (context, index) {
                 final friend = friends[index];
                 return ListTile(
-                  leading: CircleAvatar(
+                  leading: AvatarWidget(
+                    name: friend.name,
+                    imageUrl: friend.avatarUrl,
                     radius: 26,
-                    backgroundImage: friend.avatarUrl != null
-                        ? NetworkImage(friend.avatarUrl!)
-                        : null,
-                    child: friend.avatarUrl == null
-                        ? const Icon(Icons.person, size: 30)
-                        : null,
                   ),
                   title: Text(friend.name,
                       style: const TextStyle(

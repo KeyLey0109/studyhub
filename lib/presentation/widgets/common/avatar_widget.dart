@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 
@@ -9,13 +10,23 @@ class AvatarWidget extends StatelessWidget {
   final VoidCallback? onTap;
 
   const AvatarWidget({
-    super.key, required this.name, this.imageUrl, this.radius = 24, this.onTap,
+    super.key,
+    required this.name,
+    this.imageUrl,
+    this.radius = 24,
+    this.onTap,
   });
 
   Color _colorFromName(String name) {
     final colors = [
-      Colors.blue, Colors.green, Colors.orange, Colors.purple,
-      Colors.teal, Colors.red, Colors.indigo, Colors.pink,
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.red,
+      Colors.indigo,
+      Colors.pink,
     ];
     if (name.isEmpty) return AppTheme.primaryBlue;
     return colors[name.codeUnitAt(0) % colors.length];
@@ -32,7 +43,9 @@ class AvatarWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     ImageProvider? provider;
     if (imageUrl != null && imageUrl!.isNotEmpty) {
-      if (imageUrl!.startsWith('http')) {
+      if (imageUrl!.startsWith('http') ||
+          imageUrl!.startsWith('blob:') ||
+          kIsWeb) {
         provider = NetworkImage(imageUrl!);
       } else {
         final file = File(imageUrl!);

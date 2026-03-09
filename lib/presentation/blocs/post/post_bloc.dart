@@ -28,11 +28,9 @@ class CreatePostEvent extends PostEvent {
   });
 }
 
-class ReactToPostEvent extends PostEvent {
+class ToggleLikePostEvent extends PostEvent {
   final String postId, userId;
-  final ReactionType? reactionType;
-  ReactToPostEvent(
-      {required this.postId, required this.userId, this.reactionType});
+  ToggleLikePostEvent({required this.postId, required this.userId});
 }
 
 class SharePostEvent extends PostEvent {
@@ -102,7 +100,7 @@ class PostBloc extends Bloc<PostEvent, PostState> {
   PostBloc({required this.repository}) : super(PostInitial()) {
     on<LoadPostsEvent>(_onLoad);
     on<CreatePostEvent>(_onCreate);
-    on<ReactToPostEvent>(_onReact);
+    on<ToggleLikePostEvent>(_onLike);
     on<AddCommentEvent>(_onComment);
     on<LikeCommentEvent>(_onLikeComment);
     on<SearchPostsEvent>(_onSearch);
@@ -143,10 +141,11 @@ class PostBloc extends Bloc<PostEvent, PostState> {
     }
   }
 
-  Future<void> _onReact(ReactToPostEvent event, Emitter<PostState> emit) async {
+  Future<void> _onLike(
+      ToggleLikePostEvent event, Emitter<PostState> emit) async {
     try {
-      final updated = await repository.reactToPost(
-          event.postId, event.userId, event.reactionType);
+      final updated =
+          await repository.toggleLikePost(event.postId, event.userId);
       _updatePost(updated, emit);
     } catch (_) {}
   }

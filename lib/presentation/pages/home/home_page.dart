@@ -146,11 +146,9 @@ class _HomePageState extends State<HomePage> {
                         return PostCardWidget(
                           post: post,
                           currentUserId: uid,
-                          onReact: (type) => context.read<PostBloc>().add(
-                              ReactToPostEvent(
-                                  postId: post.id,
-                                  userId: uid,
-                                  reactionType: type)),
+                          onLike: () => context.read<PostBloc>().add(
+                              ToggleLikePostEvent(
+                                  postId: post.id, userId: uid)),
                           onComment: () => context.push('/post/${post.id}'),
                           onTapAuthor: () =>
                               context.push('/profile/${post.authorId}'),

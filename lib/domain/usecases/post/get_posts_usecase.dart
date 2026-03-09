@@ -32,13 +32,11 @@ class CreatePostUseCase {
 class LikePostUseCase {
   final PostRepository repository;
   LikePostUseCase(this.repository);
-  Future<PostEntity> call(
-          {required String postId,
-          required String userId,
-          required bool isLiked}) =>
-      isLiked
-          ? repository.reactToPost(postId, userId, null)
-          : repository.reactToPost(postId, userId, ReactionType.like);
+  Future<PostEntity> call({
+    required String postId,
+    required String userId,
+  }) =>
+      repository.toggleLikePost(postId, userId);
 }
 
 class CommentPostUseCase {

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -74,7 +75,6 @@ class _PostDetailPageState extends State<PostDetailPage> {
         }
         final auth = context.read<AuthBloc>().state;
         final uid = auth is AuthAuthenticated ? auth.user.id : '';
-        final myReaction = post.reactionOf(uid);
 
         return Column(children: [
           Expanded(
@@ -131,11 +131,16 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     const Divider(height: 1),
                     Row(children: [
                       Expanded(
-                          child: _ReactionButton(
-                        myReaction: myReaction,
-                        onReact: (t) => context.read<PostBloc>().add(
-                            ReactToPostEvent(
-                                postId: post.id, userId: uid, reactionType: t)),
+                          child: _ActionButton(
+                        icon: post.isLikedBy(uid)
+                            ? Icons.thumb_up
+                            : Icons.thumb_up_outlined,
+                        color: post.isLikedBy(uid)
+                            ? const Color(0xFF1877F2)
+                            : Colors.grey.shade700,
+                        label: 'Thích',
+                        onTap: () => context.read<PostBloc>().add(
+                            ToggleLikePostEvent(postId: post.id, userId: uid)),
                       )),
                       Expanded(
                           child: _ActionButton(
@@ -224,7 +229,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
         return Container(
             width: double.infinity,
             color: Colors.grey.shade100,
-            child: url.startsWith('http')
+            child: url.startsWith('http') || url.startsWith('blob:') || kIsWeb
                 ? Image.network(url,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => _errorIcon())
@@ -312,7 +317,9 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.url.startsWith('http')
+    _controller = widget.url.startsWith('http') ||
+            widget.url.startsWith('blob:') ||
+            kIsWeb
         ? VideoPlayerController.networkUrl(Uri.parse(widget.url))
         : VideoPlayerController.file(File(widget.url));
     _controller.initialize().then((_) => setState(() => _initialized = true));
@@ -346,107 +353,16 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
   }
 }
 
-class _ReactionButton extends StatefulWidget {
-  final ReactionType? myReaction;
-  final Function(ReactionType?) onReact;
-  const _ReactionButton({this.myReaction, required this.onReact});
-  @override
-  State<_ReactionButton> createState() => _ReactionButtonState();
-}
-
-class _ReactionButtonState extends State<_ReactionButton> {
-  OverlayEntry? _overlay;
-
-  void _showPicker(BuildContext context) {
-    final renderBox = context.findRenderObject() as RenderBox;
-    final offset = renderBox.localToGlobal(Offset.zero);
-    _overlay = OverlayEntry(
-        builder: (_) => Positioned(
-              left: 10,
-              bottom: MediaQuery.of(context).size.height - offset.dy + 10,
-              child: Material(
-                  elevation: 4,
-                  borderRadius: BorderRadius.circular(30),
-                  child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(30)),
-                      child: Row(children: [
-                        _pickerIcon('👍', ReactionType.like),
-                        _pickerIcon('❤️', ReactionType.love),
-                        _pickerIcon('😆', ReactionType.haha),
-                        _pickerIcon('😮', ReactionType.wow),
-                        _pickerIcon('😢', ReactionType.sad),
-                        _pickerIcon('😡', ReactionType.angry),
-                      ]))),
-            ));
-    Overlay.of(context).insert(_overlay!);
-  }
-
-  Widget _pickerIcon(String emoji, ReactionType t) => GestureDetector(
-      onTap: () {
-        widget.onReact(t);
-        _overlay?.remove();
-      },
-      child: Padding(
-          padding: const EdgeInsets.all(5),
-          child: Text(emoji, style: const TextStyle(fontSize: 28))));
-
-  @override
-  Widget build(BuildContext context) {
-    final hasReact = widget.myReaction != null;
-    final label = _getLabel(widget.myReaction);
-    final color = _getColor(widget.myReaction);
-    return GestureDetector(
-      onLongPress: () => _showPicker(context),
-      onTap: () => widget.onReact(hasReact ? null : ReactionType.like),
-      child: SizedBox(
-          height: 44,
-          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(hasReact ? Icons.thumb_up : Icons.thumb_up_outlined,
-                color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(label,
-                style: TextStyle(
-                    color: color, fontWeight: FontWeight.bold, fontSize: 13)),
-          ])),
-    );
-  }
-
-  String _getLabel(ReactionType? t) {
-    if (t == null) return 'Thích';
-    switch (t) {
-      case ReactionType.like:
-        return 'Thích';
-      case ReactionType.love:
-        return 'Yêu thích';
-      case ReactionType.haha:
-        return 'Haha';
-      case ReactionType.wow:
-        return 'Wow';
-      case ReactionType.sad:
-        return 'Buồn';
-      case ReactionType.angry:
-        return 'Phẫn nộ';
-    }
-  }
-
-  Color _getColor(ReactionType? t) {
-    if (t == null) return Colors.grey.shade700;
-    if (t == ReactionType.like) return const Color(0xFF1877F2);
-    if (t == ReactionType.love) return Colors.red;
-    return Colors.orange;
-  }
-}
-
 class _ActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color? color;
   const _ActionButton(
-      {required this.icon, required this.label, required this.onTap});
+      {required this.icon,
+      required this.label,
+      required this.onTap,
+      this.color});
   @override
   Widget build(BuildContext context) => Expanded(
       child: InkWell(
@@ -455,13 +371,11 @@ class _ActionButton extends StatelessWidget {
               height: 44,
               child:
                   Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(icon, color: Colors.grey.shade700, size: 20),
+                Icon(icon, color: color ?? Colors.grey.shade700, size: 20),
                 const SizedBox(width: 8),
                 Text(label,
                     style: TextStyle(
-                        color: Colors.grey.shade700,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13))
+                        color: color ?? Colors.grey.shade700, fontSize: 13))
               ]))));
 }
 
@@ -530,7 +444,14 @@ class _CommentItem extends StatelessWidget {
                                     : Colors.grey.shade600))),
                     if (comment.likeCount > 0) ...[
                       const SizedBox(width: 4),
-                      Text('${comment.likeCount}👍',
+                      Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                              color: Color(0xFF1877F2), shape: BoxShape.circle),
+                          child: const Icon(Icons.thumb_up,
+                              color: Colors.white, size: 8)),
+                      const SizedBox(width: 4),
+                      Text('${comment.likeCount}',
                           style: const TextStyle(fontSize: 11))
                     ],
                     const SizedBox(width: 12),

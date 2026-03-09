@@ -175,13 +175,9 @@ class _ReelItemState extends State<ReelItem> {
                 GestureDetector(
                   onTap: () {
                     if (widget.currentUserId.isNotEmpty) {
-                      context.read<PostBloc>().add(ReactToPostEvent(
+                      context.read<PostBloc>().add(ToggleLikePostEvent(
                             postId: widget.post.id,
                             userId: widget.currentUserId,
-                            reactionType:
-                                widget.post.isLikedBy(widget.currentUserId)
-                                    ? null
-                                    : ReactionType.like,
                           ));
                     }
                   },

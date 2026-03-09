@@ -12,8 +12,7 @@ abstract class PostRepository {
     List<String> mediaTypes,
     PostEntity? sharedPost,
   });
-  Future<PostEntity> reactToPost(
-      String postId, String userId, ReactionType? type);
+  Future<PostEntity> toggleLikePost(String postId, String userId);
   Future<PostEntity> addComment({
     required String postId,
     required String authorId,

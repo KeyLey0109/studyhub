@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -166,7 +167,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Container(
                   color: Colors.grey.shade300,
                   child: displayUser.coverUrl != null
-                      ? (displayUser.coverUrl!.startsWith('http')
+                      ? ((displayUser.coverUrl!.startsWith('http') ||
+                              displayUser.coverUrl!.startsWith('blob:') ||
+                              kIsWeb)
                           ? Image.network(displayUser.coverUrl!,
                               fit: BoxFit.cover)
                           : Image.file(File(displayUser.coverUrl!),
@@ -320,11 +323,8 @@ class _ProfilePageState extends State<ProfilePage> {
               child: PostCardWidget(
                 post: userPosts[i],
                 currentUserId: currentUser?.id ?? '',
-                onReact: (type) => context.read<PostBloc>().add(
-                    ReactToPostEvent(
-                        postId: userPosts[i].id,
-                        userId: currentUser?.id ?? '',
-                        reactionType: type)),
+                onLike: () => context.read<PostBloc>().add(ToggleLikePostEvent(
+                    postId: userPosts[i].id, userId: currentUser?.id ?? '')),
                 onComment: () => context.push('/post/${userPosts[i].id}'),
                 onTapAuthor: () {},
                 onShare: () {

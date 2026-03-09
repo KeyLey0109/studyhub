@@ -74,18 +74,21 @@ class FakeRemoteDatasource {
     return post;
   }
 
-  Future<PostEntity> reactToPost(
-      String postId, String userId, ReactionType? type) async {
+  Future<PostEntity> toggleLikePost(String postId, String userId) async {
     await _delay();
     var post = _local.getPostById(postId);
     if (post == null) throw Exception('Post not found');
-    final reactions = List<ReactionEntity>.from(post.reactions)
-      ..removeWhere((r) => r.userId == userId);
-    if (type != null) reactions.add(ReactionEntity(userId: userId, type: type));
-    post = post.copyWith(reactions: reactions);
+    final likes = List<String>.from(post.likedByIds);
+    if (likes.contains(userId)) {
+      likes.remove(userId);
+    } else {
+      likes.add(userId);
+    }
+
+    post = post.copyWith(likedByIds: likes);
     await _local.savePost(post);
     // Notify post author
-    if (type == ReactionType.like && post.authorId != userId) {
+    if (likes.contains(userId) && post.authorId != userId) {
       final u = _local.getUserById(userId);
       await _local.saveNotification(NotificationEntity(
         id: _uuid.v4(),

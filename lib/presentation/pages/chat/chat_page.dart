@@ -7,6 +7,7 @@ import '../../blocs/chat/chat_event.dart';
 import '../../blocs/chat/chat_state.dart';
 import '../../../data/datasources/local/hive_local_datasource.dart';
 import '../../../injection_container.dart' as di;
+import '../../widgets/common/avatar_widget.dart';
 
 class ChatPage extends StatefulWidget {
   final String otherUserId;
@@ -75,14 +76,10 @@ class _ChatPageState extends State<ChatPage> {
         title: Row(
           children: [
             if (otherUser != null)
-              CircleAvatar(
+              AvatarWidget(
+                name: otherUser.name,
+                imageUrl: otherUser.avatarUrl,
                 radius: 16,
-                backgroundImage: otherUser.avatarUrl != null
-                    ? NetworkImage(otherUser.avatarUrl!)
-                    : null,
-                child: otherUser.avatarUrl == null
-                    ? const Icon(Icons.person, size: 20)
-                    : null,
               ),
             const SizedBox(width: 10),
             Text(

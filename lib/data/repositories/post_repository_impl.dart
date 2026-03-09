@@ -41,9 +41,8 @@ class PostRepositoryImpl implements PostRepository {
       );
 
   @override
-  Future<PostEntity> reactToPost(
-          String postId, String userId, ReactionType? type) =>
-      remote.reactToPost(postId, userId, type);
+  Future<PostEntity> toggleLikePost(String postId, String userId) =>
+      remote.toggleLikePost(postId, userId);
 
   @override
   Future<PostEntity> addComment({

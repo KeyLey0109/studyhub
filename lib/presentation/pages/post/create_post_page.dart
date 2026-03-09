@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -16,7 +17,7 @@ class CreatePostPage extends StatefulWidget {
 class _CreatePostPageState extends State<CreatePostPage> {
   final _ctrl = TextEditingController();
   final _picker = ImagePicker();
-  final List<File> _mediaFiles = [];
+  final List<String> _mediaPaths = [];
   final List<String> _mediaTypes = [];
   bool _loading = false;
 
@@ -26,14 +27,14 @@ class _CreatePostPageState extends State<CreatePostPage> {
     super.dispose();
   }
 
-  bool get _canPost => _ctrl.text.trim().isNotEmpty || _mediaFiles.isNotEmpty;
+  bool get _canPost => _ctrl.text.trim().isNotEmpty || _mediaPaths.isNotEmpty;
 
   Future<void> _pickImages() async {
     final files = await _picker.pickMultiImage(imageQuality: 80);
     if (files.isNotEmpty) {
       setState(() {
         for (final f in files) {
-          _mediaFiles.add(File(f.path));
+          _mediaPaths.add(f.path);
           _mediaTypes.add('image');
         }
       });
@@ -45,7 +46,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         source: ImageSource.gallery, maxDuration: const Duration(minutes: 5));
     if (file != null) {
       setState(() {
-        _mediaFiles.add(File(file.path));
+        _mediaPaths.add(file.path);
         _mediaTypes.add('video');
       });
     }
@@ -56,7 +57,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
     if (file != null) {
       setState(() {
-        _mediaFiles.add(File(file.path));
+        _mediaPaths.add(file.path);
         _mediaTypes.add('image');
       });
     }
@@ -200,7 +201,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     ),
                     const SizedBox(height: 16),
                     // Media Preview
-                    if (_mediaFiles.isNotEmpty) _buildMediaPreview(),
+                    if (_mediaPaths.isNotEmpty) _buildMediaPreview(),
                   ],
                 ),
               ),
@@ -222,7 +223,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         crossAxisSpacing: 4,
         mainAxisSpacing: 4,
       ),
-      itemCount: _mediaFiles.length,
+      itemCount: _mediaPaths.length,
       itemBuilder: (_, i) => Stack(
         children: [
           ClipRRect(
@@ -233,17 +234,22 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     child: const Center(
                         child: Icon(Icons.play_circle_fill,
                             color: Colors.white, size: 40)))
-                : Image.file(_mediaFiles[i],
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity),
+                : (kIsWeb
+                    ? Image.network(_mediaPaths[i],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity)
+                    : Image.file(File(_mediaPaths[i]),
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity)),
           ),
           Positioned(
             top: 4,
             right: 4,
             child: GestureDetector(
               onTap: () => setState(() {
-                _mediaFiles.removeAt(i);
+                _mediaPaths.removeAt(i);
                 _mediaTypes.removeAt(i);
               }),
               child: Container(
@@ -294,7 +300,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
     if (auth is! AuthAuthenticated) return;
     setState(() => _loading = true);
 
-    final urls = _mediaFiles.map((f) => f.path).toList();
+    final urls = List<String>.from(_mediaPaths);
     context.read<PostBloc>().add(CreatePostEvent(
           authorId: auth.user.id,
           authorName: auth.user.name,
