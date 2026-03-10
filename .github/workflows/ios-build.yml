@@ -18,7 +18,8 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.0' # Bạn có thể thay đổi phiên bản Flutter tại đây
+          # Cập nhật lên 3.22.0 để thỏa mãn http 1.6.0 (Dart 3.4.0)
+          flutter-version: '3.22.0' 
           channel: 'stable'
           cache: true
 
@@ -26,14 +27,25 @@ jobs:
         run: flutter pub get
 
       - name: Install CocoaPods
-        run: cd ios && pod install
+        run: |
+          cd ios
+          pod install
+          cd ..
 
       - name: Build iOS (No Sign)
         run: flutter build ios --release --no-codesign
 
-      # Bước này sẽ nén thư mục Build để bạn có thể tải về kiểm tra
+      # Sideloadly cần file .ipa. Bước này nén Runner.app thành Runner.ipa
+      - name: Create IPA Structure
+        run: |
+          mkdir -p build/ios/iphoneos/Payload
+          mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos
+          zip -r studyhub_app.ipa Payload
+          cd ../../..
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ios-build
-          path: build/ios/iphoneos
+          name: ios-ipa-file
+          path: build/ios/iphoneos/studyhub_app.ipa
