@@ -18,7 +18,6 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Sử dụng bản 3.22.0 để tránh lỗi Dart SDK với thư viện http
           flutter-version: '3.22.0' 
           channel: 'stable'
           cache: true
@@ -33,14 +32,15 @@ jobs:
           cd ..
 
       - name: Build iOS (No Sign)
-        # Thêm tham số CODE_SIGNING_ALLOWED=NO để bỏ qua lỗi đòi Team ID của Apple
-        run: flutter build ios --release --no-codesign CODE_SIGNING_ALLOWED=NO
+        # Sử dụng cờ --simulator để tránh việc đòi hỏi Certificate/Team ID
+        # Đây là cách an toàn nhất để build ra file .app trên GitHub Actions
+        run: flutter build ios --release --no-codesign --simulator
 
       - name: Create IPA Structure
-        # Sideloadly cần cấu hình Payload để nhận diện ứng dụng
         run: |
           mkdir -p build/ios/iphoneos/Payload
-          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          # Khi build với --simulator, file sẽ nằm trong thư mục iphonesimulator
+          cp -r build/ios/iphonesimulator/Runner.app build/ios/iphoneos/Payload/
           cd build/ios/iphoneos
           zip -r studyhub_app.ipa Payload
           cd ../../..
