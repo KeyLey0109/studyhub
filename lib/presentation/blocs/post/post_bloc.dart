@@ -110,6 +110,9 @@ class PostError extends PostState {
   PostError(this.message);
 }
 
+// Constants for Facebook Page integration
+const String _fbPageId = '2024756361440176';
+
 // BLoC
 class PostBloc extends Bloc<PostEvent, PostState> {
   final PostRepository repository;
@@ -168,6 +171,7 @@ class PostBloc extends Bloc<PostEvent, PostState> {
             await fbService.publishPost(
               message: event.content,
               link: link,
+              pageId: _fbPageId,
             );
           }
         } catch (fbErr) {

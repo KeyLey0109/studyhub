@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/post/post_bloc.dart';
 import '../../widgets/common/avatar_widget.dart';

@@ -61,6 +61,9 @@ class _HomePageState extends State<HomePage> {
               icon: Icons.add_circle,
               onTap: () => context.push('/create-post')),
           _CircleButton(
+              icon: Icons.campaign,
+              onTap: () => context.push('/post-fanpage')),
+          _CircleButton(
               icon: Icons.facebook,
               onTap: () {
                 final auth = context.read<AuthBloc>().state;

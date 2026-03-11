@@ -91,10 +91,12 @@ class FacebookSyncService {
     }
   }
 
-  /// Đăng bài lên Facebook cá nhân
-  Future<void> publishPost({String? message, String? link}) async {
+  /// Đăng bài lên Facebook (cá nhân hoặc Page)
+  Future<void> publishPost(
+      {String? message, String? link, String? pageId}) async {
     try {
-      final url = Uri.parse('https://graph.facebook.com/v19.0/me/feed');
+      final id = pageId ?? 'me';
+      final url = Uri.parse('https://graph.facebook.com/v19.0/$id/feed');
       final response = await http.post(
         url,
         body: {

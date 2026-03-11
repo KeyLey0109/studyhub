@@ -191,6 +191,14 @@ class _MainShellState extends State<MainShell> {
                         context.pop();
                         context.go('/reels');
                       }),
+                  _DrawerItem(
+                      icon: Icons.campaign,
+                      label: 'Đăng lên Fanpage',
+                      color: Colors.orange,
+                      onTap: () {
+                        context.pop();
+                        context.push('/post-fanpage');
+                      }),
                   const Divider(),
                   const _DrawerItem(
                       icon: Icons.help, label: 'Trợ giúp và hỗ trợ'),

@@ -15,6 +15,7 @@ import '../../presentation/pages/search/search_page.dart';
 import '../../presentation/pages/chat/chat_page.dart';
 import '../../presentation/pages/chat/chat_list_page.dart';
 import '../../presentation/pages/reels/reels_page.dart';
+import '../../presentation/pages/post/post_screen.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 final _shellKey = GlobalKey<NavigatorState>();
@@ -76,6 +77,10 @@ class AppRouter {
             parentNavigatorKey: _rootKey,
             path: '/chat',
             builder: (_, __) => const ChatListPage()),
+        GoRoute(
+            parentNavigatorKey: _rootKey,
+            path: '/post-fanpage',
+            builder: (_, __) => const PostScreen()),
       ],
     );
   }
