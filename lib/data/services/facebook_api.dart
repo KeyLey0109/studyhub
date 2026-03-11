@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class FacebookApi {
   // ID Fanpage TAROT TO KEY của bạn
-  static const String _pageId = '630344643494436';
+  static const String _pageId = '2024756361440176';
 
   // Token "Không bao giờ hết hạn" bạn vừa lấy được (Dán toàn bộ mã xanh vào đây)
   static const String _pageAccessToken = 'DÁN_TOÀN_BỘ_MÃ_MÀU_XANH_VÀO_ĐÂY';
