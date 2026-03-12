@@ -1,3 +1,4 @@
+import 'package:get_it/get_it.dart'; // Thêm GetIt để gọi API WordPress
 import '../../domain/entities/post_entity.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/notification_entity.dart';
@@ -5,15 +6,41 @@ import '../../domain/repositories/post_repository.dart';
 import '../../domain/repositories/friend_repository.dart';
 import '../datasources/local/hive_local_datasource.dart';
 import '../datasources/remote/supabase_remote_datasource.dart';
+import '../datasources/remote/wordpress_remote_datasource.dart'; // Import WordPress API
 
 class PostRepositoryImpl implements PostRepository {
   final SupabaseRemoteDatasource remote;
   final HiveLocalDatasource local;
+
   PostRepositoryImpl({required this.remote, required this.local});
 
   @override
-  Future<List<PostEntity>> getPosts({int page = 1, int limit = 10}) =>
-      remote.getPosts(page: page, limit: limit);
+  Future<List<PostEntity>> getPosts({int page = 1, int limit = 10}) async {
+    try {
+      // 1. Gọi tên lửa kéo bài viết từ trang WordPress của bạn về
+      final wpRemote = GetIt.instance<PostRemoteDataSource>();
+      final wpPosts = await wpRemote.getPosts();
+
+      // 2. Kéo thêm các bài viết người dùng tự đăng trên App (từ Supabase/Fake)
+      List<PostEntity> appPosts = [];
+      try {
+        appPosts = await remote.getPosts(page: page, limit: limit);
+      } catch (e) {
+        // Bỏ qua nếu app chưa có bài viết nào
+      }
+
+      // 3. Trộn cả 2 nguồn bài viết lại với nhau
+      final allPosts = [...wpPosts, ...appPosts];
+
+      // 4. Sắp xếp bài nào mới nhất thì ưu tiên đưa lên đầu (như Facebook)
+      allPosts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      return allPosts;
+    } catch (e) {
+      // Nếu rớt mạng hoặc web lỗi, tự động lôi bài viết cũ trong App ra hiển thị
+      return remote.getPosts(page: page, limit: limit);
+    }
+  }
 
   @override
   Future<List<PostEntity>> getUserPosts(String userId) async {
@@ -64,7 +91,7 @@ class PostRepositoryImpl implements PostRepository {
 
   @override
   Future<PostEntity> likeComment(
-          String postId, String commentId, String userId) =>
+      String postId, String commentId, String userId) =>
       remote.likeComment(postId, commentId, userId);
 
   @override
@@ -91,17 +118,17 @@ class FriendRepositoryImpl implements FriendRepository {
 
   @override
   Future<void> sendFriendRequest(
-          {required String fromId, required String toId}) =>
+      {required String fromId, required String toId}) =>
       remote.sendFriendRequest(fromId, toId);
 
   @override
   Future<void> acceptFriendRequest(
-          {required String fromId, required String toId}) =>
+      {required String fromId, required String toId}) =>
       remote.acceptFriendRequest(fromId, toId);
 
   @override
   Future<void> declineFriendRequest(
-          {required String fromId, required String toId}) =>
+      {required String fromId, required String toId}) =>
       remote.declineFriendRequest(fromId, toId);
 
   @override
