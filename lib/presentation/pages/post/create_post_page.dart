@@ -314,7 +314,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   Widget _buildBottomToolBar() {
     return Container(
-      padding: EdgeInsets.only(
+      padding: const EdgeInsets.only(
         left: 16,
         right: 8,
         top: 8,

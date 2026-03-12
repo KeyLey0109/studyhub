@@ -92,7 +92,9 @@ class StoryBloc extends Bloc<StoryEvent, StoryState> {
     on<ReactToStoryEvent>((event, emit) async {
       try {
         await reactToStoryUseCase(event.storyId, event.reaction);
-      } catch (e) {}
+      } catch (e) {
+        // Ignore reaction errors for now
+      }
     });
 
     on<DeleteStoryEvent>((event, emit) async {

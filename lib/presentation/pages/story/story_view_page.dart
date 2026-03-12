@@ -132,7 +132,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                   child: LinearProgressIndicator(
                     value: _controller.value,
-                    backgroundColor: Colors.grey.withOpacity(0.5),
+                    backgroundColor: Colors.grey.withValues(alpha: 0.5),
                     valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                     minHeight: 2,
                   ),
@@ -196,9 +196,9 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       children: [

@@ -767,7 +767,7 @@ class SupabaseRemoteDatasource {
         backgroundColor: json['background_color'],
         createdAt: DateTime.parse(json['created_at']),
         expiresAt: DateTime.parse(json['expires_at']),
-        reactions: [],
+        reactions: const [],
       );
     }).toList();
   }
