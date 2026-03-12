@@ -146,7 +146,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // User Profile
+                    // User Profile Row
                     Row(
                       children: [
                         AvatarWidget(
@@ -189,7 +189,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // Text Input
+                    // Input TextField
                     TextField(
                       controller: _ctrl,
                       maxLines: null,
@@ -217,7 +217,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ),
               ),
             ),
-            // Bottom Action Bar
+            // Bottom Action Bar (pinned above keyboard)
             _buildBottomToolBar(),
           ],
         ),
@@ -324,6 +324,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
       ),
     );
   }
+
 
   Widget _buildFacebookToggle() {
     return Container(
@@ -489,7 +490,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
       }
 
       await Future.delayed(const Duration(milliseconds: 500));
-
       if (mounted) {
         setState(() => _loading = false);
         if (Navigator.canPop(context)) {

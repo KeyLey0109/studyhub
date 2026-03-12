@@ -16,6 +16,9 @@ import '../../presentation/pages/chat/chat_page.dart';
 import '../../presentation/pages/chat/chat_list_page.dart';
 import '../../presentation/pages/reels/reels_page.dart';
 import '../../presentation/pages/post/post_screen.dart';
+import '../../presentation/pages/story/create_story_page.dart';
+import '../../presentation/pages/story/story_view_page.dart';
+import '../../domain/entities/story_entity.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 final _shellKey = GlobalKey<NavigatorState>();
@@ -64,6 +67,14 @@ class AppRouter {
             parentNavigatorKey: _rootKey,
             path: '/create-post',
             builder: (_, __) => const CreatePostPage()),
+        GoRoute(
+            parentNavigatorKey: _rootKey,
+            path: '/create-story',
+            builder: (_, __) => const CreateStoryPage()),
+        GoRoute(
+            parentNavigatorKey: _rootKey,
+            path: '/story-view',
+            builder: (_, state) => StoryViewPage(story: state.extra as StoryEntity)),
         GoRoute(
             parentNavigatorKey: _rootKey,
             path: '/search',

@@ -193,45 +193,42 @@ class _SearchPageState extends State<SearchPage>
   }
 }
 
-class _UserTile extends StatefulWidget {
+class _UserTile extends StatelessWidget {
   final UserEntity user;
   const _UserTile({required this.user});
-  @override
-  State<_UserTile> createState() => _UserTileState();
-}
-
-class _UserTileState extends State<_UserTile> {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthBloc>().state;
     final uid = auth is AuthAuthenticated ? auth.user.id : '';
-    final isMe = uid == widget.user.id;
+    final isMe = uid == user.id;
     final isFriend =
-        (auth is AuthAuthenticated) && auth.user.isFriendWith(widget.user.id);
+        (auth is AuthAuthenticated) && auth.user.isFriendWith(user.id);
     final hasSent = (auth is AuthAuthenticated) &&
-        auth.user.hasSentRequestTo(widget.user.id);
+        auth.user.hasSentRequestTo(user.id);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => context.push('/profile/${widget.user.id}'),
+        onTap: () => context.push('/profile/${user.id}'),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               AvatarWidget(
-                  name: widget.user.name,
-                  imageUrl: widget.user.avatarUrl,
-                  radius: 28),
+                name: user.name,
+                imageUrl: user.avatarUrl,
+                radius: 28,
+                onTap: () => context.push('/profile/${user.id}'),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(widget.user.name,
+                    Text(user.name,
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 16)),
-                    Text('${widget.user.friendIds.length} bạn bè',
+                    Text('${user.friendIds.length} bạn bè',
                         style: const TextStyle(
                             color: AppTheme.textGrey, fontSize: 13)),
                   ],
@@ -241,7 +238,7 @@ class _UserTileState extends State<_UserTile> {
                 isFriend
                     ? OutlinedButton(
                         onPressed: () =>
-                            context.push('/profile/${widget.user.id}'),
+                            context.push('/profile/${user.id}'),
                         style: OutlinedButton.styleFrom(
                             minimumSize: const Size(100, 36),
                             foregroundColor: AppTheme.textDark,
@@ -251,7 +248,7 @@ class _UserTileState extends State<_UserTile> {
                     : hasSent
                         ? OutlinedButton(
                             onPressed: () =>
-                                context.push('/profile/${widget.user.id}'),
+                                context.push('/profile/${user.id}'),
                             style: OutlinedButton.styleFrom(
                                 minimumSize: const Size(100, 36)),
                             child: const Text('Đã gửi'))
@@ -259,7 +256,7 @@ class _UserTileState extends State<_UserTile> {
                             onPressed: () {
                               context.read<FriendBloc>().add(
                                   SendFriendRequestEvent(
-                                      fromId: uid, toId: widget.user.id));
+                                      fromId: uid, toId: user.id));
                             },
                             icon: const Icon(Icons.person_add,
                                 size: 16, color: Colors.white),
@@ -284,7 +281,11 @@ class _PostTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
         leading: AvatarWidget(
-            name: post.authorName, imageUrl: post.authorAvatar, radius: 20),
+          name: post.authorName,
+          imageUrl: post.authorAvatar,
+          radius: 20,
+          onTap: () => context.push('/profile/${post.authorId}'),
+        ),
         title: Text(post.authorName,
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         subtitle:

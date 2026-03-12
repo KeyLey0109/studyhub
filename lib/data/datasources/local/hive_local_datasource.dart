@@ -68,7 +68,6 @@ class HiveLocalDatasource {
       _settings.put('fb_access_token', token);
   String? getFbAccessToken() => _settings.get('fb_access_token');
   Future<void> clearFbAccessToken() => _settings.delete('fb_access_token');
-
   UserEntity? getUserById(String id) {
     final data = _users.get(id);
     if (data == null) return null;
@@ -146,7 +145,6 @@ class HiveLocalDatasource {
   }
 
   Future<void> deleteMessage(String messageId) => _messages.delete(messageId);
-
   // ── JSON helpers ──────────────────────────────────────────────────────────
   Map<String, dynamic> _userToJson(UserEntity u) => {
         'id': u.id,

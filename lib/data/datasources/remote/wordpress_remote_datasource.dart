@@ -24,7 +24,7 @@ class WordPressRemoteDataSourceImpl implements PostRemoteDataSource {
   @override
   Future<List<PostModel>> getPosts() async {
     try {
-      print('🚀 --- BẮT ĐẦU GỌI API ĐẾN TRANG WEB --- 🚀');
+      // --- BẮT ĐẦU GỌI API ĐẾN TRANG WEB --- 
 
       // 🔥 BƯỚC ĐỘT PHÁ 2: Giả lập 100% thiết bị Android thật lướt web
       final response = await dio.get(
@@ -41,26 +41,26 @@ class WordPressRemoteDataSourceImpl implements PostRemoteDataSource {
         ),
       );
 
-      print('✅ --- KẾT NỐI THÀNH CÔNG! MÃ TRẢ VỀ: ${response.statusCode} --- ✅');
+      // --- KẾT NỐI THÀNH CÔNG! ---
 
       if (response.statusCode == 200) {
         final List<dynamic> jsonList = response.data;
-        print('📦 --- LẤY ĐƯỢC ${jsonList.length} BÀI VIẾT TỪ WEB --- 📦');
+        // --- LẤY ĐƯỢC BÀI VIẾT TỪ WEB --- 
 
         return jsonList.map((json) {
           try {
             return PostModel.fromJson(json);
           } catch (e) {
-            print('❌ --- LỖI KHI BÓC TÁCH DỮ LIỆU: $e --- ❌');
+            // --- LỖI KHI BÓC TÁCH DỮ LIỆU --- 
             rethrow;
           }
         }).toList();
       } else {
-        print('❌ --- LỖI SERVER: ${response.statusCode} --- ❌');
+        // --- LỖI SERVER --- 
         throw Exception('Lỗi server: Không thể tải bài viết');
       }
     } catch (e) {
-      print('❌ --- LỖI KẾT NỐI MẠNG HOẶC API: $e --- ❌');
+      // --- LỖI KẾT NỐI MẠNG HOẶC API --- 
       throw Exception('Lỗi kết nối API: $e');
     }
   }

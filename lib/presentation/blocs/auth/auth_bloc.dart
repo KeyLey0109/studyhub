@@ -34,7 +34,6 @@ class RegisterEvent extends AuthEvent {
 class LogoutEvent extends AuthEvent {}
 
 class FacebookLoginEvent extends AuthEvent {}
-
 class SyncDataEvent extends AuthEvent {
   final String userId;
   SyncDataEvent(this.userId);
@@ -194,7 +193,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   void _onUpdateUser(UpdateUserEvent event, Emitter<AuthState> emit) {
     emit(AuthAuthenticated(event.user));
   }
-
   Future<void> _onFacebookLogin(
       FacebookLoginEvent event, Emitter<AuthState> emit) async {
     emit(AuthLoading());

@@ -129,7 +129,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(ChatError(e.toString()));
     }
   }
-
   Future<void> _onDeleteMessage(
       DeleteMessageEvent event, Emitter<ChatState> emit) async {
     try {

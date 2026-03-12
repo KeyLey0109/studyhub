@@ -6,7 +6,6 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import 'package:video_player/video_player.dart';
-
 import '../../../domain/entities/post_entity.dart';
 import '../common/avatar_widget.dart';
 
@@ -58,7 +57,7 @@ class PostCardWidget extends StatelessWidget {
 
                   final content = post.content ?? '';
                   final url =
-                  post.mediaUrls.isNotEmpty ? post.mediaUrls.first : null;
+                      post.mediaUrls.isNotEmpty ? post.mediaUrls.first : null;
 
                   final shareText = url != null && url.isNotEmpty
                       ? '$content \n\n$url'
@@ -77,12 +76,7 @@ class PostCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isLiked = false;
-    try {
-      isLiked = post.isLikedBy(currentUserId);
-    } catch (e) {
-      // Bỏ qua nếu phương thức chưa được định nghĩa
-    }
+    final isLiked = post.isLikedBy(currentUserId);
 
     // Xử lý an toàn cho ảnh avatar (tránh lỗi null)
     String safeAvatarUrl = 'https://ui-avatars.com/api/?name=${post.authorName}&background=random';
@@ -124,7 +118,29 @@ class PostCardWidget extends StatelessWidget {
               icon: const Icon(Icons.more_horiz),
               onSelected: (value) {
                 if (value == 'delete' && onDelete != null) {
-                  onDelete!();
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Xóa bài viết'),
+                      content: const Text(
+                          'Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể hoàn tác.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Hủy',
+                              style: TextStyle(color: Colors.grey)),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            onDelete!();
+                          },
+                          child: const Text('Xóa',
+                              style: TextStyle(color: Colors.red)),
+                        ),
+                      ],
+                    ),
+                  );
                 }
               },
               itemBuilder: (context) => [
@@ -166,17 +182,13 @@ class PostCardWidget extends StatelessWidget {
                     height: Height.auto(),
                   )
                 },
-                onLinkTap: (url, attributes, element) {
-                  // Bỏ lệnh print theo cảnh báo của IDE
-                  if(url != null) {
-                    // Xử lý mở link ở đây nếu cần
-                  }
-                },
               ),
             ),
 
-          /// ẢNH / MEDIA (Dùng đúng biến mediaUrls của bạn)
+          /// ẢNH / MEDIA
           if (post.mediaUrls.isNotEmpty) _buildMediaContent(),
+          
+          if (post.sharedPost != null) _buildSharedPostContent(),
 
           /// LIKE / COMMENT COUNT
           if (post.likeCount > 0 || post.commentCount > 0)
@@ -241,49 +253,99 @@ class PostCardWidget extends StatelessWidget {
       children: List.generate(post.mediaUrls.length, (index) {
         final url = post.mediaUrls[index];
         final type =
-        post.mediaTypes.length > index ? post.mediaTypes[index] : 'image';
+            post.mediaTypes.length > index ? post.mediaTypes[index] : 'image';
 
         if (type == 'video') {
           return _VideoPlayerWidget(url: url);
         }
 
-        if (url.startsWith('http') || kIsWeb) {
-          return CachedNetworkImage(
-            imageUrl: url,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            placeholder: (context, url) => const SizedBox(
-              height: 200,
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            errorWidget: (context, url, error) => _errorIcon(),
-          );
-        }
-
-        return Image.file(
-          File(url),
-          fit: BoxFit.cover,
+        return Container(
           width: double.infinity,
-          errorBuilder: (_, __, ___) => _errorIcon(),
+          color: Colors.grey.shade100,
+          child: url.startsWith('http') || url.startsWith('blob:') || kIsWeb
+              ? CachedNetworkImage(
+                  imageUrl: url,
+                  fit: BoxFit.cover,
+                  placeholder: (context, url) => const SizedBox(
+                    height: 200,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  errorWidget: (context, url, error) => _errorIcon(),
+                )
+              : Image.file(
+                  File(url),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _errorIcon(),
+                ),
         );
       }),
     );
   }
 
+  Widget _buildSharedPostContent() {
+    final shared = post.sharedPost!;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            leading: AvatarWidget(
+                name: shared.authorName,
+                imageUrl: shared.authorAvatar,
+                radius: 16),
+            title: Text(shared.authorName,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: Text(timeago.format(shared.createdAt, locale: 'vi'),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+          ),
+          if (shared.content != null && shared.content!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child:
+                  Text(shared.content!, style: const TextStyle(fontSize: 14)),
+            ),
+          if (shared.mediaUrls.isNotEmpty)
+            Column(
+              children: List.generate(shared.mediaUrls.length, (index) {
+                final url = shared.mediaUrls[index];
+                final type = shared.mediaTypes.length > index
+                    ? shared.mediaTypes[index]
+                    : 'image';
+                if (type == 'video') return _VideoPlayerWidget(url: url);
+                return url.startsWith('http')
+                    ? CachedNetworkImage(
+                        imageUrl: url,
+                        fit: BoxFit.cover,
+                        errorWidget: (context, url, error) => _errorIcon(),
+                      )
+                    : Image.file(File(url),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _errorIcon());
+              }),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _errorIcon() => Container(
-    height: 200,
-    color: Colors.grey.shade200,
-    child: const Center(
-      child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
-    ),
-  );
+        height: 200,
+        color: Colors.grey.shade200,
+        child: const Center(
+            child: Icon(Icons.broken_image, color: Colors.grey, size: 40)),
+      );
 }
 
 class _VideoPlayerWidget extends StatefulWidget {
   final String url;
-
   const _VideoPlayerWidget({required this.url});
-
   @override
   State<_VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
 }
@@ -295,17 +357,13 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
   @override
   void initState() {
     super.initState();
-
-    _controller = widget.url.startsWith('http') || kIsWeb
+    _controller = widget.url.startsWith('http') ||
+            widget.url.startsWith('blob:') ||
+            kIsWeb
         ? VideoPlayerController.networkUrl(Uri.parse(widget.url))
         : VideoPlayerController.file(File(widget.url));
-
     _controller.initialize().then((_) {
-      if (mounted) {
-        setState(() {
-          _initialized = true;
-        });
-      }
+      if (mounted) setState(() => _initialized = true);
     });
   }
 
@@ -319,34 +377,22 @@ class _VideoPlayerWidgetState extends State<_VideoPlayerWidget> {
   Widget build(BuildContext context) {
     if (!_initialized) {
       return Container(
-        height: 200,
-        color: Colors.black,
-        child: const Center(child: CircularProgressIndicator()),
-      );
+          height: 200,
+          color: Colors.black,
+          child: const Center(child: CircularProgressIndicator()));
     }
-
     return AspectRatio(
       aspectRatio: _controller.value.aspectRatio,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          VideoPlayer(_controller),
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _controller.value.isPlaying
-                    ? _controller.pause()
-                    : _controller.play();
-              });
-            },
-            child: Icon(
-              _controller.value.isPlaying ? null : Icons.play_arrow,
-              color: Colors.white,
-              size: 50,
-            ),
-          ),
-        ],
-      ),
+      child: Stack(alignment: Alignment.center, children: [
+        VideoPlayer(_controller),
+        GestureDetector(
+          onTap: () => setState(() => _controller.value.isPlaying
+              ? _controller.pause()
+              : _controller.play()),
+          child: Icon(_controller.value.isPlaying ? null : Icons.play_arrow,
+              color: Colors.white, size: 50),
+        ),
+      ]),
     );
   }
 }
@@ -365,29 +411,21 @@ class _ActionButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => Expanded(
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+              height: 44,
+              child:
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(icon, color: color ?? Colors.grey.shade700, size: 20),
+                const SizedBox(width: 8),
+                Text(label,
+                    style: TextStyle(
+                        color: color ?? Colors.grey.shade700,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+              ])),
         ),
-      ),
-    );
-  }
+      );
 }

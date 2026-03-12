@@ -31,7 +31,6 @@ class SendMessageEvent extends ChatEvent {
   @override
   List<Object?> get props => [currentUserId, otherUserId, content];
 }
-
 class DeleteMessageEvent extends ChatEvent {
   final String messageId;
   final String currentUserId;

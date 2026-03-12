@@ -55,29 +55,43 @@ class AvatarWidget extends StatelessWidget {
       }
     }
 
-    Widget avatar;
-    if (provider != null) {
-      avatar = CircleAvatar(
-        radius: radius,
-        backgroundImage: provider,
-        backgroundColor: _colorFromName(name),
-      );
-    } else {
-      avatar = CircleAvatar(
-        radius: radius,
-        backgroundColor: _colorFromName(name),
-        child: Text(
-          _initials(name),
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: radius * 0.7,
-          ),
+    Widget avatar = CircleAvatar(
+      radius: radius,
+      backgroundImage: provider,
+      backgroundColor: _colorFromName(name),
+      child: provider == null
+          ? Text(
+              _initials(name),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: radius * 0.7,
+              ),
+            )
+          : null,
+    );
+
+    if (onTap != null) {
+      return SizedBox(
+        width: radius * 2,
+        height: radius * 2,
+        child: Stack(
+          children: [
+            avatar,
+            Positioned.fill(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(radius),
+                  splashColor: Colors.black12,
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
-
-    if (onTap != null) return GestureDetector(onTap: onTap, child: avatar);
     return avatar;
   }
 }

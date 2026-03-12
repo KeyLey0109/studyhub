@@ -13,6 +13,7 @@ import 'presentation/blocs/friend/friend_bloc.dart';
 import 'presentation/blocs/notification/notification_bloc.dart';
 import 'presentation/blocs/search/search_bloc.dart';
 import 'presentation/blocs/chat/chat_bloc.dart';
+import 'presentation/blocs/story/story_bloc.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -42,6 +43,7 @@ class StudyHubApp extends StatelessWidget {
         BlocProvider(create: (_) => di.sl<NotificationBloc>()),
         BlocProvider(create: (_) => di.sl<SearchBloc>()),
         BlocProvider(create: (_) => di.sl<ChatBloc>()),
+        BlocProvider(create: (_) => di.sl<StoryBloc>()),
       ],
       child: Builder(builder: (context) {
         final authBloc = context.read<AuthBloc>();

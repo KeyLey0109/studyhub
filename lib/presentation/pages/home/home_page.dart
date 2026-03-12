@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/post/post_bloc.dart';
+import '../../blocs/story/story_bloc.dart';
 import '../../widgets/post/post_card_widget.dart';
 import '../../widgets/common/avatar_widget.dart';
+import '../../widgets/story/story_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,8 +20,10 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(
-        (_) => context.read<PostBloc>().add(LoadPostsEvent(refresh: true)));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PostBloc>().add(LoadPostsEvent(refresh: true));
+      context.read<StoryBloc>().add(LoadStoriesEvent());
+    });
     _scroll.addListener(() {
       if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
         final s = context.read<PostBloc>().state;
@@ -90,13 +94,16 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async =>
-            context.read<PostBloc>().add(LoadPostsEvent(refresh: true)),
+        onRefresh: () async {
+          context.read<PostBloc>().add(LoadPostsEvent(refresh: true));
+          context.read<StoryBloc>().add(LoadStoriesEvent());
+        },
         child: SingleChildScrollView(
           controller: _scroll,
           child: Column(
             children: [
               _buildCreatePostBox(),
+              const StoryWidget(),
               const Divider(height: 8, thickness: 8, color: Color(0xFFC9CCD1)),
               _buildFeedContent(),
             ],
@@ -117,9 +124,15 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               AvatarWidget(
-                  name: user?.name ?? '',
-                  imageUrl: user?.avatarUrl,
-                  radius: 20),
+                name: user?.name ?? '',
+                imageUrl: user?.avatarUrl,
+                radius: 20,
+                onTap: () {
+                  if (user != null) {
+                    context.push('/profile/${user.id}');
+                  }
+                },
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: GestureDetector(

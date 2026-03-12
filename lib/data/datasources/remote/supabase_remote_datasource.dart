@@ -5,6 +5,7 @@ import '../../../domain/entities/user_entity.dart';
 import '../../../domain/entities/post_entity.dart';
 import '../../../domain/entities/notification_entity.dart';
 import '../../../domain/entities/message_entity.dart';
+import '../../../domain/entities/story_entity.dart';
 
 class SupabaseRemoteDatasource {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -175,7 +176,6 @@ class SupabaseRemoteDatasource {
       'created_at': user.createdAt.toIso8601String(),
     });
   }
-
   Future<String> uploadProfileImage(
       String userId, String filePath, bool isCover) async {
     final fileName = '${userId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
@@ -508,7 +508,6 @@ class SupabaseRemoteDatasource {
     final List<UserEntity> users = [];
     for (final row in data) {
       final fromId = row['from_id'];
-
       // Secondary check: are they already friends?
       final isFriend = await _supabase
           .from('friendships')
@@ -771,5 +770,69 @@ class SupabaseRemoteDatasource {
 
   Future<void> deleteMessage(String messageId) async {
     await _supabase.from('messages').delete().eq('id', messageId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // STORY METHODS
+  // ---------------------------------------------------------------------------
+
+  Future<List<StoryEntity>> getStories() async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    final data = await _supabase
+        .from('stories')
+        .select('''
+          *,
+          users(name, avatar_url)
+        ''')
+        .gt('expires_at', now)
+        .order('created_at', ascending: false);
+
+    return data.map<StoryEntity>((json) {
+      final user = json['users'];
+      return StoryEntity(
+        id: json['id'].toString(),
+        userId: json['user_id'],
+        userName: (user != null) ? (user['name'] ?? 'Unknown') : 'Unknown',
+        userAvatar: (user != null) ? user['avatar_url'] : null,
+        type: _parseStoryType(json['type']),
+        url: json['url'],
+        content: json['content'],
+        backgroundColor: json['background_color'],
+        createdAt: DateTime.parse(json['created_at']),
+        expiresAt: DateTime.parse(json['expires_at']),
+        reactions: const [],
+      );
+    }).toList();
+  }
+
+  StoryType _parseStoryType(String type) {
+    switch (type) {
+      case 'image':
+        return StoryType.image;
+      case 'video':
+        return StoryType.video;
+      default:
+        return StoryType.text;
+    }
+  }
+
+  Future<void> createStory(StoryEntity story) async {
+    await _supabase.from('stories').insert({
+      'user_id': story.userId,
+      'type': story.type.name,
+      'url': story.url,
+      'content': story.content,
+      'background_color': story.backgroundColor,
+      'created_at': story.createdAt.toUtc().toIso8601String(),
+      'expires_at': story.expiresAt.toUtc().toIso8601String(),
+    });
+  }
+
+  Future<void> reactToStory(String storyId, StoryReaction reaction) async {
+    // To be implemented
+  }
+
+  Future<void> deleteStory(String storyId) async {
+    await _supabase.from('stories').delete().eq('id', storyId);
   }
 }

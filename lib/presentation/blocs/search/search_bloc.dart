@@ -26,7 +26,6 @@ abstract class SearchState extends Equatable {
 class SearchInitial extends SearchState {}
 
 class SearchLoading extends SearchState {}
-
 class SearchLoaded extends SearchState {
   final List<UserEntity> users;
   final List<PostEntity> posts;

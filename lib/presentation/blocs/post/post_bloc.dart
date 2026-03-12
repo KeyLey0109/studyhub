@@ -84,7 +84,6 @@ class SyncFacebookPostsEvent extends PostEvent {
   final String userId;
   SyncFacebookPostsEvent({required this.userId});
 }
-
 // States
 abstract class PostState extends Equatable {
   @override
@@ -112,7 +111,6 @@ class PostError extends PostState {
 
 // Constants for Facebook Page integration
 const String _fbPageId = '2024756361440176';
-
 // BLoC
 class PostBloc extends Bloc<PostEvent, PostState> {
   final PostRepository repository;
@@ -156,7 +154,6 @@ class PostBloc extends Bloc<PostEvent, PostState> {
         mediaUrls: event.mediaUrls,
         mediaTypes: event.mediaTypes,
       );
-
       // Auto-share to Facebook if requested
       if (event.shareToFacebook) {
         try {
@@ -178,7 +175,6 @@ class PostBloc extends Bloc<PostEvent, PostState> {
           debugPrint('PostBloc Facebook auto-share error: $fbErr');
         }
       }
-
       final current =
           state is PostLoaded ? (state as PostLoaded).posts : <PostEntity>[];
       emit(PostLoaded(posts: [post, ...current]));
@@ -266,7 +262,6 @@ class PostBloc extends Bloc<PostEvent, PostState> {
       emit((state as PostLoaded).copyWith(posts: posts));
     }
   }
-
   Future<void> _onSyncFacebook(
       SyncFacebookPostsEvent event, Emitter<PostState> emit) async {
     try {
