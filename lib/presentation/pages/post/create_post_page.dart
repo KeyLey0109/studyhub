@@ -469,8 +469,13 @@ class _CreatePostPageState extends State<CreatePostPage> {
     if (auth is! AuthAuthenticated) return;
     setState(() => _loading = true);
 
+    bool studyHubSuccess = false;
+    bool fanpageSuccess = false;
+    String? studyHubError;
+    String? fanpageError;
+
+    // 1. GỬI LÊN STUDYHUB (SUPABASE)
     try {
-      // Upload media files to Supabase Storage first
       final remote = di.sl<SupabaseRemoteDatasource>();
       final List<String> uploadedUrls = [];
 
@@ -482,47 +487,69 @@ class _CreatePostPageState extends State<CreatePostPage> {
         uploadedUrls.add(url);
       }
 
-      if (!mounted) return;
-
-      context.read<PostBloc>().add(CreatePostEvent(
-            authorId: auth.user.id,
-            authorName: auth.user.name,
-            authorAvatar: auth.user.avatarUrl,
-            content: _ctrl.text.trim().isEmpty ? null : _ctrl.text.trim(),
-            mediaUrls: uploadedUrls,
-            mediaTypes: _mediaTypes,
-            shareToFacebook: _shareToFb,
-          ));
-
-      // Handle direct Fanpage posting via FacebookApi
-      if (_postToTarot) {
-        try {
-          await FacebookApi.postToFanpage(
-            _ctrl.text.trim(),
-            mediaPaths: _mediaPaths,
-            mediaTypes: _mediaTypes,
-          );
-        } catch (e) {
-          debugPrint('CreatePostPage Tarot Fanpage error: $e');
-        }
-      }
-
-      await Future.delayed(const Duration(milliseconds: 500));
       if (mounted) {
-        setState(() => _loading = false);
-        if (Navigator.canPop(context)) {
-          Navigator.pop(context);
-        } else {
-          context.go('/');
-        }
+        context.read<PostBloc>().add(CreatePostEvent(
+              authorId: auth.user.id,
+              authorName: auth.user.name,
+              authorAvatar: auth.user.avatarUrl,
+              content: _ctrl.text.trim().isEmpty ? null : _ctrl.text.trim(),
+              mediaUrls: uploadedUrls,
+              mediaTypes: _mediaTypes,
+              shareToFacebook: _shareToFb,
+            ));
+        studyHubSuccess = true;
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _loading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi đăng bài: ${e.toString()}')),
+      studyHubError = e.toString();
+      debugPrint('CreatePostPage StudyHub error: $studyHubError');
+    }
+
+    // 2. GỬI LÊN FANPAGE TAROT (NÊÚ BẬT)
+    if (_postToTarot) {
+      try {
+        fanpageSuccess = await FacebookApi.postToFanpage(
+          _ctrl.text.trim(),
+          mediaPaths: _mediaPaths,
+          mediaTypes: _mediaTypes,
         );
+        if (!fanpageSuccess) {
+          fanpageError = "Lỗi khi gửi bài tới Facebook API";
+        }
+      } catch (e) {
+        fanpageError = e.toString();
+        debugPrint('CreatePostPage Fanpage error: $fanpageError');
       }
+    }
+
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    // XỬ LÝ THÔNG BÁO VÀ CHUYỂN HƯỚNG
+    if (studyHubSuccess || fanpageSuccess) {
+      String msg = "";
+      if (studyHubSuccess && fanpageSuccess) {
+        msg = "Đã đăng bài thành công lên StudyHub và Fanpage!";
+      } else if (studyHubSuccess) {
+        msg = "Đã đăng lên StudyHub${_postToTarot ? ", nhưng Fanpage bị lỗi." : "!"}";
+      } else {
+        msg = "Fanpage thành công. StudyHub thất bại (file quá lớn hoặc lỗi mạng).";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 4),
+      ));
+
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      } else {
+        context.go('/');
+      }
+    } else {
+      final errorMsg = studyHubError ?? fanpageError ?? "Lỗi đăng bài không xác định";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: $errorMsg')),
+      );
     }
   }
 }
