@@ -72,24 +72,21 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // Đã bỏ AppBar truyền thống để tự tạo thanh điều hướng thấp hơn tránh đốm đen màn hình
       body: SafeArea(
         child: Column(
           children: [
-            // Thanh điều hướng tự chế (thấp hơn appBar cũ)
+            // Custom Header
             Container(
               height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 border: Border(
-                    bottom:
-                        BorderSide(color: Colors.grey.shade300, width: 0.5)),
+                    bottom: BorderSide(color: Colors.grey.shade300, width: 0.5)),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon:
-                        const Icon(Icons.close, color: Colors.black, size: 30),
+                    icon: const Icon(Icons.close, color: Colors.black, size: 30),
                     onPressed: () {
                       if (Navigator.canPop(context)) {
                         Navigator.pop(context);
@@ -105,7 +102,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold)),
                   const Spacer(),
-                  // Nút Đăng nổi bật hơn
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: TextButton(
@@ -143,7 +139,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // User Profile
+                    // User Profile Row
                     Row(
                       children: [
                         AvatarWidget(
@@ -186,7 +182,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // Text Input
+                    // Input TextField
                     TextField(
                       controller: _ctrl,
                       maxLines: null,
@@ -208,7 +204,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                 ),
               ),
             ),
-            // Bottom Action Bar
+            // Bottom Action Bar (pinned above keyboard)
             _buildBottomToolBar(),
           ],
         ),
@@ -322,7 +318,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
         left: 16,
         right: 8,
         top: 8,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+        bottom: 8, // Fixed padding, TextField will handle viewInsets
       ),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
@@ -352,7 +348,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
     setState(() => _loading = true);
 
     try {
-      // Upload media files to Supabase Storage first
       final remote = di.sl<SupabaseRemoteDatasource>();
       final List<String> uploadedUrls = [];
 
