@@ -198,10 +198,28 @@ class _CreatePostPageState extends State<CreatePostPage> {
                         hintText:
                             'Bạn đang nghiên cứu gì thế, ${user?.name ?? ''}?',
                         hintStyle:
-                            const TextStyle(fontSize: 18, color: Colors.grey),
-                        border: InputBorder.none,
+                            const TextStyle(fontSize: 16, color: Colors.grey),
+                        filled: true,
+                        fillColor: const Color(0xFFF5F6F7),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF1877F2), width: 1.5),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF1877F2), width: 1.5),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(25),
+                          borderSide: const BorderSide(
+                              color: Color(0xFF1877F2), width: 2),
+                        ),
                       ),
-                      style: const TextStyle(fontSize: 18),
+                      style: const TextStyle(fontSize: 16),
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 16),
@@ -418,11 +436,11 @@ class _CreatePostPageState extends State<CreatePostPage> {
 
   Widget _buildBottomToolBar() {
     return Container(
-      padding: EdgeInsets.only(
+      padding: const EdgeInsets.only(
         left: 16,
         right: 8,
         top: 8,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 8,
+        bottom: 12,
       ),
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: Colors.grey.shade300)),
