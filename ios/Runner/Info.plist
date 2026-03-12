@@ -71,7 +71,6 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
-<<<<<<< HEAD
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>fb</string>
@@ -81,8 +80,6 @@
 		<string>fb-messenger-api</string>
 		<string>fb-messenger</string>
 	</array>
-=======
->>>>>>> update-app
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
