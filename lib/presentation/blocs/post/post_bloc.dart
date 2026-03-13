@@ -161,15 +161,21 @@ class PostBloc extends Bloc<PostEvent, PostState> {
           final fbToken = local.getFbAccessToken();
           if (fbToken != null && fbToken.isNotEmpty) {
             final fbService = FacebookSyncService(accessToken: fbToken);
-            String? link;
-            if (event.mediaUrls.isNotEmpty) {
-              link = event.mediaUrls.first;
+            
+            // Check token validity before publishing
+            if (await fbService.checkTokenValidity()) {
+              String? link;
+              if (event.mediaUrls.isNotEmpty) {
+                link = event.mediaUrls.first;
+              }
+              await fbService.publishPost(
+                message: event.content,
+                link: link,
+                pageId: _fbPageId,
+              );
+            } else {
+              debugPrint('PostBloc: Facebook token is invalid or expired.');
             }
-            await fbService.publishPost(
-              message: event.content,
-              link: link,
-              pageId: _fbPageId,
-            );
           }
         } catch (fbErr) {
           debugPrint('PostBloc Facebook auto-share error: $fbErr');
@@ -278,6 +284,14 @@ class PostBloc extends Bloc<PostEvent, PostState> {
       if (user == null) return;
 
       final syncService = FacebookSyncService(accessToken: fbToken);
+      
+      // Check token validity before syncing
+      if (!await syncService.checkTokenValidity()) {
+        debugPrint('❌ Facebook token invalid. Please re-login.');
+        emit(PostError('Phiên đăng nhập Facebook hết hạn. Vui lòng đăng nhập lại.'));
+        return;
+      }
+
       final fbPosts = await syncService.fetchFacebookPosts(
         fbUserId: event.userId.replaceFirst('fb_', ''),
         fbUserName: user.name,

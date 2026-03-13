@@ -8,13 +8,25 @@ class FacebookSyncService {
 
   FacebookSyncService({required this.accessToken});
 
-  /// Lấy danh sách bài viết gần nhất từ Facebook
+  /// Kiểm tra xem Token hiện tại có hợp lệ không trước khi làm việc
+  Future<bool> checkTokenValidity() async {
+    try {
+      final url = Uri.parse(
+          'https://graph.facebook.com/debug_token?input_token=$accessToken&access_token=$accessToken');
+      final response = await http.get(url);
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<List<PostEntity>> fetchFacebookPosts({
     required String fbUserId,
     required String fbUserName,
     String? fbUserAvatar,
   }) async {
     try {
+      // ✅ Lưu ý: Cần quyền 'user_posts' để gọi được /me/feed
       final url = Uri.parse(
         'https://graph.facebook.com/v19.0/me/feed'
         '?fields=id,message,created_time,full_picture,attachments{media,type}'
@@ -25,14 +37,16 @@ class FacebookSyncService {
       final response = await http.get(url);
 
       if (response.statusCode != 200) {
-        debugPrint('Facebook API Error: ${response.body}');
-        throw Exception(
-            'Không thể lấy bài viết từ Facebook (${response.statusCode})');
+        final errorData = json.decode(response.body);
+        // Kiểm tra nếu lỗi do Token hết hạn (Error code 190)
+        if (errorData['error']?['code'] == 190) {
+          debugPrint('❌ Token đã hết hạn, yêu cầu đăng nhập lại.');
+        }
+        throw Exception('Lỗi Facebook API: ${errorData['error']?['message']}');
       }
 
       final data = json.decode(response.body);
       final List<dynamic> fbPosts = data['data'] ?? [];
-
       final List<PostEntity> posts = [];
 
       for (final fbPost in fbPosts) {
@@ -91,12 +105,13 @@ class FacebookSyncService {
     }
   }
 
-  /// Đăng bài lên Facebook (cá nhân hoặc Page)
+  /// Đăng bài (Cá nhân dùng 'me', Page dùng 'page_id')
   Future<void> publishPost(
       {String? message, String? link, String? pageId}) async {
     try {
       final id = pageId ?? 'me';
       final url = Uri.parse('https://graph.facebook.com/v19.0/$id/feed');
+
       final response = await http.post(
         url,
         body: {
@@ -107,13 +122,12 @@ class FacebookSyncService {
       );
 
       if (response.statusCode != 200) {
-        debugPrint('Facebook Publish Error: ${response.body}');
+        // ✅ Kiểm tra lỗi phân quyền thường gặp
+        debugPrint('❌ Publish Fail: ${response.body}');
         throw Exception(
-            'Không thể đăng bài lên Facebook (${response.statusCode})');
+            'Không thể đăng bài. Vui lòng kiểm tra quyền pages_manage_posts.');
       }
-      debugPrint('Facebook Publish Success: ${response.body}');
     } catch (e) {
-      debugPrint('FacebookSyncService Publish Error: $e');
       rethrow;
     }
   }
