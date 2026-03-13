@@ -213,7 +213,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
 
       // Save FB access token for Graph API sync
-      final fbAccessToken = result.accessToken?.token ?? '';
+      final fbAccessToken = result.accessToken?.tokenString ?? '';
       if (fbAccessToken.isNotEmpty) {
         local.saveFbAccessToken(fbAccessToken);
       }
