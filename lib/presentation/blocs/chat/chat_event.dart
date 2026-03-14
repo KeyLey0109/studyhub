@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../domain/entities/message_entity.dart';
 
 abstract class ChatEvent extends Equatable {
   const ChatEvent();
@@ -21,16 +22,21 @@ class SendMessageEvent extends ChatEvent {
   final String currentUserId;
   final String otherUserId;
   final String content;
+  final MessageType type;
+  final String? mediaUrl;
 
   const SendMessageEvent({
     required this.currentUserId,
     required this.otherUserId,
     required this.content,
+    this.type = MessageType.text,
+    this.mediaUrl,
   });
 
   @override
-  List<Object?> get props => [currentUserId, otherUserId, content];
+  List<Object?> get props => [currentUserId, otherUserId, content, type, mediaUrl];
 }
+
 class DeleteMessageEvent extends ChatEvent {
   final String messageId;
   final String currentUserId;

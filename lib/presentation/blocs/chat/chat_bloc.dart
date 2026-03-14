@@ -27,32 +27,25 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       if (!isSilent) {
         emit(ChatLoading());
       }
-      // Fast load from local
       final localMsgs = localDatasource.getMessagesBetween(
         event.currentUserId,
         event.otherUserId,
       );
 
-      // Fetch from Supabase
       try {
         final remoteMsgs = await remoteDatasource.getMessages(
             event.currentUserId, event.otherUserId);
 
-        // Save to local cache
         for (final msg in remoteMsgs) {
           await localDatasource.saveMessage(msg);
         }
 
-        // Combine and deduplicate
-        // Rule: If a local message has a UUID (likely optimistic) but matches
-        // a remote message's content and sender, prefer the remote one.
         final List<MessageEntity> finalMessages = [...remoteMsgs];
         final remoteContents =
             remoteMsgs.map((m) => '${m.senderId}_${m.content}').toSet();
 
         for (var lm in localMsgs) {
           final key = '${lm.senderId}_${lm.content}';
-          // If not from remote and doesn't match a remote content-key, add it (likely pending or unique local)
           if (!remoteMsgs.any((rm) => rm.id == lm.id) &&
               !remoteContents.contains(key)) {
             finalMessages.add(lm);
@@ -61,7 +54,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
 
         finalMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-        // Only emit if changed to avoid flicker
         bool hasChanged = true;
         if (state is ChatLoaded) {
           final current = (state as ChatLoaded).messages;
@@ -94,12 +86,13 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   Future<void> _onSendMessage(
       SendMessageEvent event, Emitter<ChatState> emit) async {
     try {
-      // Optimistic update
       final optimisticMessage = MessageEntity(
         id: _uuid.v4(),
         senderId: event.currentUserId,
         receiverId: event.otherUserId,
         content: event.content,
+        type: event.type,
+        mediaUrl: event.mediaUrl,
         createdAt: DateTime.now(),
       );
 
@@ -112,12 +105,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         emit(ChatLoaded([optimisticMessage]));
       }
 
-      // Send to Supabase
+      // If it's a media message, upload first (simplified here as paths are already remote or simulated)
+      String? finalMediaUrl = event.mediaUrl;
+      if (event.mediaUrl != null && !event.mediaUrl!.startsWith('http')) {
+        finalMediaUrl = await remoteDatasource.uploadPostMedia(event.currentUserId, event.mediaUrl!);
+      }
+
       final savedRemote = await remoteDatasource.sendMessage(
-          event.currentUserId, event.otherUserId, event.content);
+          event.currentUserId, event.otherUserId, event.content, type: event.type, mediaUrl: finalMediaUrl);
       await localDatasource.saveMessage(savedRemote);
 
-      // Replace optimistic with real one (to get the real ID and exact timestamp)
       if (state is ChatLoaded) {
         final currentMessages = (state as ChatLoaded).messages;
         final updatedMessages = currentMessages
@@ -129,10 +126,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       emit(ChatError(e.toString()));
     }
   }
+
   Future<void> _onDeleteMessage(
       DeleteMessageEvent event, Emitter<ChatState> emit) async {
     try {
-      // Optimitic update
       if (state is ChatLoaded) {
         final current = (state as ChatLoaded).messages;
         final updated = current.where((m) => m.id != event.messageId).toList();

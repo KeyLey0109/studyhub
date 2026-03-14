@@ -107,130 +107,184 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Story Content
-          Center(
+          // Story Content - Full Screen
+          Positioned.fill(
             child: widget.story.type == StoryType.image
-                ? Image.network(widget.story.url!, fit: BoxFit.contain)
+                ? Image.network(widget.story.url!, fit: BoxFit.cover)
                 : Container(
-                    padding: const EdgeInsets.all(32),
-                    color: widget.story.backgroundColor != null
-                        ? Color(int.parse(widget.story.backgroundColor!.replaceFirst('#', '0xFF')))
-                        : Colors.blueAccent,
-                    child: Text(
-                      widget.story.content ?? '',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: widget.story.backgroundColor != null
+                            ? [
+                                Color(int.parse(widget.story.backgroundColor!.replaceFirst('#', '0xFF'))),
+                                Color(int.parse(widget.story.backgroundColor!.replaceFirst('#', '0xFF'))).withOpacity(0.8),
+                              ]
+                            : [Colors.blueAccent, Colors.blue.shade900],
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Center(
+                      child: Text(
+                        widget.story.content ?? '',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white, 
+                          fontSize: 28, 
+                          fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(color: Colors.black26, offset: Offset(0, 2), blurRadius: 4)
+                          ]
+                        ),
+                      ),
                     ),
                   ),
           ),
 
-          // Header
-          SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                  child: LinearProgressIndicator(
-                    value: _controller.value,
-                    backgroundColor: Colors.grey.withValues(alpha: 0.5),
-                    valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-                    minHeight: 2,
-                  ),
+          // Header (Overlay)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: const EdgeInsets.only(top: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black.withOpacity(0.5), Colors.transparent],
                 ),
-                ListTile(
-                  leading: AvatarWidget(
-                    name: widget.story.userName,
-                    imageUrl: widget.story.userAvatar,
-                    radius: 20,
-                  ),
-                  title: Text(
-                    widget.story.userName,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: const Text('17 giờ', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isOwner)
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_horiz, color: Colors.white),
-                          onSelected: (value) {
-                            if (value == 'delete') {
-                              _controller.stop();
-                              _deleteStory();
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Xóa tin', style: TextStyle(color: Colors.red)),
-                                ],
-                              ),
-                            ),
-                          ],
+              ),
+              child: SafeArea(
+                bottom: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: _controller.value,
+                          backgroundColor: Colors.white.withOpacity(0.3),
+                          valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                          minHeight: 3,
                         ),
-                      IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white),
-                        onPressed: () => context.pop(),
                       ),
-                    ],
-                  ),
+                    ),
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      leading: AvatarWidget(
+                        name: widget.story.userName,
+                        imageUrl: widget.story.userAvatar,
+                        radius: 20,
+                      ),
+                      title: Text(
+                        widget.story.userName,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                      ),
+                      subtitle: const Text('17 giờ', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isOwner)
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_horiz, color: Colors.white),
+                              onSelected: (value) {
+                                if (value == 'delete') {
+                                  _controller.stop();
+                                  _deleteStory();
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete_outline, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Xóa tin', style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                            onPressed: () => context.pop(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
 
-          // Footer & Message
+          // Footer & Message (Overlay)
           Positioned(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            left: 10,
-            right: 10,
-            child: Row(
-              children: [
-                IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 28), onPressed: () {}),
-                Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _messageController,
-                            focusNode: _focusNode,
-                            onChanged: (val) => setState(() {}),
-                            decoration: const InputDecoration(
-                              hintText: 'Gửi tin nhắn...',
-                              hintStyle: TextStyle(color: Colors.white70, fontSize: 14),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16),
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                top: 20,
+                left: 10,
+                right: 10,
+              ),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black.withOpacity(0.5), Colors.transparent],
+                ),
+              ),
+              child: Row(
+                children: [
+                  // Nút cộng đã được xóa tại đây
+                  Expanded(
+                    child: Container(
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _messageController,
+                              focusNode: _focusNode,
+                              onChanged: (val) => setState(() {}),
+                              decoration: const InputDecoration(
+                                hintText: 'Gửi tin nhắn...',
+                                hintStyle: TextStyle(color: Colors.white70, fontSize: 15),
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                              ),
+                              style: const TextStyle(color: Colors.white, fontSize: 15),
+                              onSubmitted: (_) => _sendMessage(),
                             ),
-                            style: const TextStyle(color: Colors.white, fontSize: 14),
-                            onSubmitted: (_) => _sendMessage(),
                           ),
-                        ),
-                        if (_messageController.text.trim().isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.send, color: Colors.white, size: 20),
-                            onPressed: _sendMessage,
-                          ),
-                      ],
+                          if (_messageController.text.trim().isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.send, color: Colors.white, size: 22),
+                              onPressed: _sendMessage,
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                _buildReactionIcon('❤️'),
-                _buildReactionIcon('👍'),
-                _buildReactionIcon('😮'),
-              ],
+                  const SizedBox(width: 10),
+                  _buildReactionIcon('❤️'),
+                  _buildReactionIcon('👍'),
+                  _buildReactionIcon('😮'),
+                ],
+              ),
             ),
           ),
         ],
@@ -257,7 +311,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
           ),
         );
       },
-      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(emoji, style: const TextStyle(fontSize: 26))),
+      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(emoji, style: const TextStyle(fontSize: 28))),
     );
   }
 }

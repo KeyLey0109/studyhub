@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../blocs/auth/auth_bloc.dart';
 import '../../blocs/chat/chat_bloc.dart';
@@ -11,6 +14,7 @@ import '../../../data/datasources/local/hive_local_datasource.dart';
 import '../../../injection_container.dart' as di;
 import '../../widgets/common/avatar_widget.dart';
 import '../../../domain/entities/user_entity.dart';
+import '../../../domain/entities/message_entity.dart';
 import '../../../data/datasources/remote/supabase_remote_datasource.dart';
 
 class ChatPage extends StatefulWidget {
@@ -25,6 +29,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final ImagePicker _picker = ImagePicker();
   late String _currentUserId;
   Timer? _refreshTimer;
   UserEntity? _otherUser;
@@ -36,17 +41,16 @@ class _ChatPageState extends State<ChatPage> {
     if (authState is AuthAuthenticated) {
       _currentUserId = authState.user.id;
       _loadOtherUserInfo();
-      context
-          .read<ChatBloc>()
-          .add(LoadMessagesEvent(_currentUserId, widget.otherUserId));
+      _loadMessages();
 
-      // Poll for new messages every 3 seconds to fake real-time sync
       _refreshTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-        context
-            .read<ChatBloc>()
-            .add(LoadMessagesEvent(_currentUserId, widget.otherUserId));
+        _loadMessages();
       });
     }
+  }
+
+  void _loadMessages() {
+    context.read<ChatBloc>().add(LoadMessagesEvent(_currentUserId, widget.otherUserId));
   }
 
   Future<void> _loadOtherUserInfo() async {
@@ -84,9 +88,47 @@ class _ChatPageState extends State<ChatPage> {
           content: text,
         ));
     _msgController.clear();
+    _scrollToBottom();
+  }
 
-    // Scroll to bottom after sending
-    Future.delayed(const Duration(milliseconds: 100), () {
+  Future<void> _pickMedia(bool isVideo, {bool fromCamera = false}) async {
+    final XFile? file = isVideo 
+      ? await _picker.pickVideo(source: fromCamera ? ImageSource.camera : ImageSource.gallery)
+      : await _picker.pickImage(source: fromCamera ? ImageSource.camera : ImageSource.gallery, imageQuality: 70);
+
+    if (file != null) {
+      if (kIsWeb) {
+        // Xử lý đặc biệt cho Web: lấy bytes và tải lên trực tiếp
+        final bytes = await file.readAsBytes();
+        final ext = file.name.split('.').last.toLowerCase();
+        final remote = di.sl<SupabaseRemoteDatasource>();
+        final url = await remote.uploadPostMediaBytes(_currentUserId, bytes, ext);
+
+        if (mounted) {
+          context.read<ChatBloc>().add(SendMessageEvent(
+            currentUserId: _currentUserId,
+            otherUserId: widget.otherUserId,
+            content: isVideo ? '[Video]' : '[Hình ảnh]',
+            type: isVideo ? MessageType.video : MessageType.image,
+            mediaUrl: url,
+          ));
+        }
+      } else {
+        // Mobile vẫn dùng path như cũ
+        context.read<ChatBloc>().add(SendMessageEvent(
+          currentUserId: _currentUserId,
+          otherUserId: widget.otherUserId,
+          content: isVideo ? '[Video]' : '[Hình ảnh]',
+          type: isVideo ? MessageType.video : MessageType.image,
+          mediaUrl: file.path,
+        ));
+      }
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 300), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
@@ -97,91 +139,24 @@ class _ChatPageState extends State<ChatPage> {
     });
   }
 
-  void _showMessageOptions(
-      BuildContext context, String messageId, String content, bool isMe) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isMe)
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text('Xóa tin nhắn',
-                      style: TextStyle(color: Colors.red)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _confirmDelete(messageId);
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.copy_outlined),
-                title: const Text('Sao chép'),
-                onTap: () async {
-                  final messenger = ScaffoldMessenger.of(context);
-                  Navigator.pop(context);
-                  await Clipboard.setData(ClipboardData(text: content));
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('Đã sao chép tin nhắn')),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _confirmDelete(String messageId) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xóa tin nhắn?'),
-        content: const Text('Tin nhắn này sẽ bị xóa khỏi cuộc trò chuyện.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Hủy'),
-          ),
-          TextButton(
-            onPressed: () {
-              context.read<ChatBloc>().add(DeleteMessageEvent(
-                    messageId: messageId,
-                    currentUserId: _currentUserId,
-                    otherUserId: widget.otherUserId,
-                  ));
-              Navigator.pop(context);
-            },
-            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        titleSpacing: 0,
         title: Row(
           children: [
             AvatarWidget(
               name: _otherUser?.name ?? 'User',
               imageUrl: _otherUser?.avatarUrl,
-              radius: 16,
+              radius: 18,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 _otherUser?.name ?? 'Người dùng',
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -189,16 +164,10 @@ class _ChatPageState extends State<ChatPage> {
           ],
         ),
         backgroundColor: Colors.white,
-        elevation: 1,
+        elevation: 0.5,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          IconButton(
-              icon: const Icon(Icons.call, color: AppTheme.primaryBlue),
-              onPressed: () {}),
-          IconButton(
-              icon: const Icon(Icons.videocam, color: AppTheme.primaryBlue),
-              onPressed: () {}),
-          IconButton(icon: const Icon(Icons.info), onPressed: () {}),
+          IconButton(icon: const Icon(Icons.info_outline), onPressed: () {}),
         ],
       ),
       body: Column(
@@ -206,72 +175,30 @@ class _ChatPageState extends State<ChatPage> {
           Expanded(
             child: BlocBuilder<ChatBloc, ChatState>(
               builder: (context, state) {
-                if (state is ChatLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
+                if (state is ChatLoading) return const Center(child: CircularProgressIndicator());
                 if (state is ChatLoaded) {
                   final msgs = state.messages;
                   if (msgs.isEmpty) {
-                    return const Center(
-                      child: Text('Hãy gửi lời chào đầu tiên!',
-                          style: TextStyle(color: Colors.grey)),
-                    );
+                    return const Center(child: Text('Hãy gửi lời chào đầu tiên!', style: TextStyle(color: Colors.grey)));
                   }
 
-                  // Auto scroll to latest on first load or new msg receipt
                   WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (_scrollController.hasClients) {
-                      _scrollController
-                          .jumpTo(_scrollController.position.maxScrollExtent);
+                    if (_scrollController.hasClients && !_scrollController.position.isScrollingNotifier.value) {
+                       _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
                     }
                   });
 
                   return ListView.builder(
                     controller: _scrollController,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                     itemCount: msgs.length,
                     itemBuilder: (context, index) {
                       final msg = msgs[index];
                       final isMe = msg.senderId == _currentUserId;
-
-                      return Align(
-                        alignment:
-                            isMe ? Alignment.centerRight : Alignment.centerLeft,
-                        child: GestureDetector(
-                          onLongPress: () {
-                            _showMessageOptions(
-                                context, msg.id, msg.content, isMe);
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isMe
-                                  ? AppTheme.primaryBlue
-                                  : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(16).copyWith(
-                                bottomRight:
-                                    isMe ? const Radius.circular(0) : null,
-                                bottomLeft:
-                                    !isMe ? const Radius.circular(0) : null,
-                              ),
-                            ),
-                            child: Text(
-                              msg.content,
-                              style: TextStyle(
-                                color: isMe ? Colors.white : Colors.black87,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
+                      return _buildMessageBubble(msg, isMe);
                     },
                   );
                 }
-
                 return const Center(child: Text('Lỗi tải tin nhắn'));
               },
             ),
@@ -280,23 +207,24 @@ class _ChatPageState extends State<ChatPage> {
           // Chat Input
           SafeArea(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.add_circle,
-                        color: AppTheme.primaryBlue),
+                    icon: const Icon(Icons.add_circle, color: AppTheme.primaryBlue),
                     onPressed: () {},
                   ),
                   IconButton(
-                    icon: const Icon(Icons.camera_alt,
-                        color: AppTheme.primaryBlue),
-                    onPressed: () {},
+                    icon: const Icon(Icons.camera_alt, color: AppTheme.primaryBlue),
+                    onPressed: () => _pickMedia(false, fromCamera: true),
                   ),
                   IconButton(
                     icon: const Icon(Icons.photo, color: AppTheme.primaryBlue),
-                    onPressed: () {},
+                    onPressed: () => _pickMedia(false),
                   ),
                   Expanded(
                     child: TextField(
@@ -306,17 +234,15 @@ class _ChatPageState extends State<ChatPage> {
                       decoration: InputDecoration(
                         hintText: 'Nhắn tin...',
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
                         ),
                         filled: true,
-                        fillColor: Colors.grey.shade200,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
+                        fillColor: Colors.grey.shade100,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.send, color: AppTheme.primaryBlue),
                     onPressed: _sendMessage,
@@ -329,4 +255,73 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
   }
+
+  Widget _buildMessageBubble(MessageEntity msg, bool isMe) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
+            padding: msg.type == MessageType.text 
+                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 10)
+                : EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: isMe ? AppTheme.primaryBlue : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(18).copyWith(
+                bottomRight: isMe ? const Radius.circular(4) : null,
+                bottomLeft: !isMe ? const Radius.circular(4) : null,
+              ),
+            ),
+            child: _buildMessageContent(msg, isMe),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageContent(MessageEntity msg, bool isMe) {
+    if (msg.type == MessageType.image) {
+      if (msg.mediaUrl == null || msg.mediaUrl!.isEmpty) return const SizedBox();
+      
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: msg.mediaUrl!.startsWith('http')
+            ? Image.network(
+                msg.mediaUrl!, 
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, _, __) => _errorPlaceholder(),
+                loadingBuilder: (ctx, child, progress) {
+                  if (progress == null) return child;
+                  return const Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                },
+              )
+            : kIsWeb 
+                ? _errorPlaceholder() // Trên Web không dùng được path local
+                : Image.file(File(msg.mediaUrl!), fit: BoxFit.cover),
+      );
+    } else if (msg.type == MessageType.video) {
+      return Container(
+        height: 200,
+        width: 150,
+        decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(14)),
+        child: const Center(child: Icon(Icons.play_circle_fill, color: Colors.white, size: 50)),
+      );
+    }
+    return Text(
+      msg.content,
+      style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 15),
+    );
+  }
+
+  Widget _errorPlaceholder() => Container(
+    padding: const EdgeInsets.all(20),
+    color: Colors.grey.shade300,
+    child: const Icon(Icons.broken_image, color: Colors.grey),
+  );
 }

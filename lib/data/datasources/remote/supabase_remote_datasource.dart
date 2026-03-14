@@ -97,7 +97,6 @@ class SupabaseRemoteDatasource {
           await _supabase.from('users').select().eq('id', id).maybeSingle();
       if (data == null) return null;
 
-      // Fetch friendship details to populate friendIds, pending, etc.
       final friendsData = await _supabase
           .from('friendships')
           .select('user_id_2')
@@ -316,7 +315,6 @@ class SupabaseRemoteDatasource {
   }
 
   Future<PostEntity> toggleLikePost(String postId, String userId) async {
-    // Basic array append/remove approach in SQL requires RPC or fetching first
     final postData = await _supabase
         .from('posts')
         .select('liked_by_ids, author_id')
@@ -377,7 +375,7 @@ class SupabaseRemoteDatasource {
       'content': content,
     });
 
-    return _fetchPostWithComments(postId); // Helper method
+    return _fetchPostWithComments(postId);
   }
 
   Future<PostEntity> likeComment(
@@ -447,7 +445,6 @@ class SupabaseRemoteDatasource {
   // ---------------------------------------------------------------------------
 
   Future<void> sendFriendRequest(String fromId, String toId) async {
-    // Check if already friends
     final existingFriend = await _supabase
         .from('friendships')
         .select()
@@ -456,7 +453,6 @@ class SupabaseRemoteDatasource {
         .maybeSingle();
     if (existingFriend != null) return;
 
-    // Check if request already exists
     final existingRequest = await _supabase
         .from('friend_requests')
         .select()
@@ -478,9 +474,8 @@ class SupabaseRemoteDatasource {
   Future<void> acceptFriendRequest(String fromId, String toId) async {
     await _supabase.from('friendships').upsert([
       {'user_id_1': fromId, 'user_id_2': toId},
-      {'user_id_1': toId, 'user_id_2': fromId} // Bidirectional
+      {'user_id_1': toId, 'user_id_2': fromId}
     ]);
-    // Delete any requests between these two users in either direction
     await _supabase.from('friend_requests').delete().or(
         'and(from_id.eq.$fromId,to_id.eq.$toId),and(from_id.eq.$toId,to_id.eq.$fromId)');
   }
@@ -498,7 +493,6 @@ class SupabaseRemoteDatasource {
             'user_id_2', [userId1, userId2]);
   }
 
-  // Simplified fetching for now
   Future<List<UserEntity>> getFriendRequests(String userId) async {
     final data = await _supabase
         .from('friend_requests')
@@ -508,7 +502,6 @@ class SupabaseRemoteDatasource {
     final List<UserEntity> users = [];
     for (final row in data) {
       final fromId = row['from_id'];
-      // Secondary check: are they already friends?
       final isFriend = await _supabase
           .from('friendships')
           .select()
@@ -517,7 +510,6 @@ class SupabaseRemoteDatasource {
           .maybeSingle();
 
       if (isFriend != null) {
-        // Cleanup stale request if it still exists
         await _supabase
             .from('friend_requests')
             .delete()
@@ -551,21 +543,18 @@ class SupabaseRemoteDatasource {
   }
 
   Future<List<UserEntity>> getSuggestions(String userId) async {
-    // 1. Get friend IDs
     final friendsData = await _supabase
         .from('friendships')
         .select('user_id_2')
         .eq('user_id_1', userId);
     final friendIds = friendsData.map((e) => e['user_id_2'] as String).toList();
 
-    // 2. Get sent request IDs
     final sentData = await _supabase
         .from('friend_requests')
         .select('to_id')
         .eq('from_id', userId);
     final sentIds = sentData.map((e) => e['to_id'] as String).toList();
 
-    // 3. Get received request IDs
     final receivedData = await _supabase
         .from('friend_requests')
         .select('from_id')
@@ -573,10 +562,8 @@ class SupabaseRemoteDatasource {
     final receivedIds =
         receivedData.map((e) => e['from_id'] as String).toList();
 
-    // 4. Combine all IDs to exclude
     final excludeIds = {userId, ...friendIds, ...sentIds, ...receivedIds};
 
-    // 5. Fetch users excluding those IDs
     final allUsersData = await _supabase
         .from('users')
         .select()
@@ -594,7 +581,6 @@ class SupabaseRemoteDatasource {
   }
 
   Future<void> deletePost(String postId) async {
-    // Delete comments first (foreign key constraint)
     await _supabase.from('comments').delete().eq('post_id', postId);
     await _supabase.from('posts').delete().eq('id', postId);
   }
@@ -634,7 +620,6 @@ class SupabaseRemoteDatasource {
       return {'users': <UserEntity>[], 'posts': <PostEntity>[]};
     }
 
-    // Search users by name
     final usersData = await _supabase
         .from('users')
         .select()
@@ -653,7 +638,6 @@ class SupabaseRemoteDatasource {
             ))
         .toList();
 
-    // Search posts by content
     final postsData = await _supabase
         .from('posts')
         .select()
@@ -742,19 +726,34 @@ class SupabaseRemoteDatasource {
               senderId: m['sender_id'],
               receiverId: m['receiver_id'],
               content: m['content'],
+              type: _parseMsgType(m['type']),
+              mediaUrl: m['media_url'],
               createdAt: DateTime.parse(m['created_at']),
             ))
         .toList();
   }
 
+  MessageType _parseMsgType(String? type) {
+    switch (type) {
+      case 'image':
+        return MessageType.image;
+      case 'video':
+        return MessageType.video;
+      default:
+        return MessageType.text;
+    }
+  }
+
   Future<MessageEntity> sendMessage(
-      String senderId, String receiverId, String content) async {
+      String senderId, String receiverId, String content, {MessageType type = MessageType.text, String? mediaUrl}) async {
     final data = await _supabase
         .from('messages')
         .insert({
           'sender_id': senderId,
           'receiver_id': receiverId,
           'content': content,
+          'type': type.name,
+          'media_url': mediaUrl,
         })
         .select()
         .single();
@@ -764,6 +763,8 @@ class SupabaseRemoteDatasource {
       senderId: data['sender_id'],
       receiverId: data['receiver_id'],
       content: data['content'],
+      type: _parseMsgType(data['type']),
+      mediaUrl: data['media_url'],
       createdAt: DateTime.parse(data['created_at']),
     );
   }
@@ -829,7 +830,6 @@ class SupabaseRemoteDatasource {
   }
 
   Future<void> reactToStory(String storyId, StoryReaction reaction) async {
-    // To be implemented
   }
 
   Future<void> deleteStory(String storyId) async {
