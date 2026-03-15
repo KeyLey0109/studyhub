@@ -10,6 +10,7 @@ abstract class AuthRepository {
   Future<void> logout();
   Future<bool> resetPassword({required String emailOrPhone});
   Future<UserEntity?> getCurrentUser();
+  Future<UserEntity> loginWithFacebook(); // ✅ Thêm hàm này
   Future<List<UserEntity>> getAllUsers();
   Future<UserEntity?> getUserById(String id);
   Future<void> updateUser(UserEntity user);

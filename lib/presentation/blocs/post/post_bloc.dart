@@ -160,7 +160,7 @@ class PostBloc extends Bloc<PostEvent, PostState> {
           final local = di.sl<HiveLocalDatasource>();
           final fbToken = local.getFbAccessToken();
           if (fbToken != null && fbToken.isNotEmpty) {
-            final fbService = FacebookSyncService(accessToken: fbToken);
+            final fbService = FacebookSyncService(userAccessToken: fbToken);
             
             // Check token validity before publishing
             if (await fbService.checkTokenValidity()) {
@@ -283,7 +283,7 @@ class PostBloc extends Bloc<PostEvent, PostState> {
       final user = local.getUserById(event.userId);
       if (user == null) return;
 
-      final syncService = FacebookSyncService(accessToken: fbToken);
+      final syncService = FacebookSyncService(userAccessToken: fbToken);
       
       // Check token validity before syncing
       if (!await syncService.checkTokenValidity()) {

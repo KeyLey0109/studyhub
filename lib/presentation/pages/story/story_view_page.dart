@@ -119,7 +119,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                         colors: widget.story.backgroundColor != null
                             ? [
                                 Color(int.parse(widget.story.backgroundColor!.replaceFirst('#', '0xFF'))),
-                                Color(int.parse(widget.story.backgroundColor!.replaceFirst('#', '0xFF'))).withOpacity(0.8),
+                                Color(int.parse(widget.story.backgroundColor!.replaceFirst('#', '0xFF'))).withValues(alpha: 0.8),
                               ]
                             : [Colors.blueAccent, Colors.blue.shade900],
                       ),
@@ -153,7 +153,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.black.withOpacity(0.5), Colors.transparent],
+                  colors: [Colors.black.withValues(alpha: 0.5), Colors.transparent],
                 ),
               ),
               child: SafeArea(
@@ -167,7 +167,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                         borderRadius: BorderRadius.circular(2),
                         child: LinearProgressIndicator(
                           value: _controller.value,
-                          backgroundColor: Colors.white.withOpacity(0.3),
+                          backgroundColor: Colors.white.withValues(alpha: 0.3),
                           valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
                           minHeight: 3,
                         ),
@@ -239,7 +239,7 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [Colors.black.withOpacity(0.5), Colors.transparent],
+                  colors: [Colors.black.withValues(alpha: 0.5), Colors.transparent],
                 ),
               ),
               child: Row(
@@ -249,9 +249,9 @@ class _StoryViewPageState extends State<StoryViewPage> with SingleTickerProvider
                     child: Container(
                       height: 48,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white.withOpacity(0.3)),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
@@ -115,13 +114,15 @@ class _ChatPageState extends State<ChatPage> {
         }
       } else {
         // Mobile vẫn dùng path như cũ
-        context.read<ChatBloc>().add(SendMessageEvent(
-          currentUserId: _currentUserId,
-          otherUserId: widget.otherUserId,
-          content: isVideo ? '[Video]' : '[Hình ảnh]',
-          type: isVideo ? MessageType.video : MessageType.image,
-          mediaUrl: file.path,
-        ));
+        if (mounted) {
+          context.read<ChatBloc>().add(SendMessageEvent(
+            currentUserId: _currentUserId,
+            otherUserId: widget.otherUserId,
+            content: isVideo ? '[Video]' : '[Hình ảnh]',
+            type: isVideo ? MessageType.video : MessageType.image,
+            mediaUrl: file.path,
+          ));
+        }
       }
       _scrollToBottom();
     }

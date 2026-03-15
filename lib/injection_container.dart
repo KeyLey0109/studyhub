@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'data/datasources/local/hive_local_datasource.dart';
 import 'data/datasources/remote/supabase_remote_datasource.dart';
 import 'data/datasources/remote/wordpress_remote_datasource.dart';
+import 'data/datasources/remote/facebook_auth_datasource.dart'; // ✅ Import Facebook DataSource
 
 import 'data/repositories/auth_repository_impl.dart';
 import 'data/repositories/post_repository_impl.dart';
@@ -41,13 +42,20 @@ import 'presentation/blocs/story/story_bloc.dart';
 final sl = GetIt.instance;
 
 Future<void> init() async {
+  /// ==========================================
   /// DATASOURCES
+  /// ==========================================
   sl.registerLazySingleton<HiveLocalDatasource>(
     () => HiveLocalDatasource(),
   );
 
   sl.registerLazySingleton<SupabaseRemoteDatasource>(
     () => SupabaseRemoteDatasource(),
+  );
+
+  // ✅ ĐĂNG KÝ FACEBOOK DATASOURCE
+  sl.registerLazySingleton<FacebookAuthDataSource>(
+    () => FacebookAuthDataSourceImpl(),
   );
 
   /// WORDPRESS API
@@ -59,11 +67,14 @@ Future<void> init() async {
     ),
   );
 
+  /// ==========================================
   /// REPOSITORIES
+  /// ==========================================
   sl.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       remote: sl(),
       local: sl(),
+      facebookAuth: sl(),
     ),
   );
 
@@ -88,6 +99,10 @@ Future<void> init() async {
     ),
   );
 
+  /// ==========================================
+  /// USECASES
+  /// ==========================================
+  
   /// AUTH USECASES
   sl.registerLazySingleton(() => LoginUseCase(sl()));
   sl.registerLazySingleton(() => RegisterUseCase(sl()));
@@ -106,7 +121,9 @@ Future<void> init() async {
   sl.registerLazySingleton(() => ReactToStoryUseCase(sl()));
   sl.registerLazySingleton(() => DeleteStoryUseCase(sl()));
 
+  /// ==========================================
   /// BLOCS
+  /// ==========================================
   sl.registerLazySingleton<AuthBloc>(
     () => AuthBloc(
       loginUseCase: sl(),

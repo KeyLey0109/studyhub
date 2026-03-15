@@ -1,19 +1,51 @@
+import 'package:flutter/foundation.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/local/hive_local_datasource.dart';
 import '../datasources/remote/supabase_remote_datasource.dart';
+import '../datasources/remote/facebook_auth_datasource.dart'; // ✅ Import file mới
 
 class AuthRepositoryImpl implements AuthRepository {
   final SupabaseRemoteDatasource remote;
   final HiveLocalDatasource local;
-  AuthRepositoryImpl({required this.remote, required this.local});
+  final FacebookAuthDataSource facebookAuth; // ✅ Thêm Data Source của Facebook
+
+  AuthRepositoryImpl({
+    required this.remote,
+    required this.local,
+    required this.facebookAuth,
+  });
 
   @override
   Future<UserEntity> login(
       {required String emailOrPhone, required String password}) async {
     final user = await remote.signIn(emailOrPhone, password);
     await local.setCurrentUserId(user.id);
+    await local.saveUser(user); // Cache lại thông tin user
     return user;
+  }
+
+  // ✅ HÀM MỚI: Xử lý Đăng nhập bằng Facebook
+  @override
+  Future<UserEntity> loginWithFacebook() async {
+    try {
+      // 1. Gọi FacebookAuthDataSource để xin Token (đã xử lý chống Limited Login)
+      final accessToken = await facebookAuth.loginWithFacebook();
+
+      // 2. Gửi Token này lên Supabase để Supabase xác thực và trả về UserEntity
+      // (Bạn sẽ cần thêm hàm signInWithFacebookToken vào SupabaseRemoteDatasource)
+      final user =
+          await remote.signInWithFacebookToken(accessToken.tokenString);
+
+      // 3. Lưu vào Local Cache (Hive) để dùng offline
+      await local.setCurrentUserId(user.id);
+      await local.saveUser(user);
+
+      return user;
+    } catch (e) {
+      debugPrint('Lỗi Repository khi đăng nhập Facebook: $e');
+      rethrow;
+    }
   }
 
   @override
@@ -24,11 +56,17 @@ class AuthRepositoryImpl implements AuthRepository {
   }) async {
     final user = await remote.register(name, emailOrPhone, password);
     await local.setCurrentUserId(user.id);
+    await local.saveUser(user); // Cache lại
     return user;
   }
 
   @override
-  Future<void> logout() => local.clearCurrentUser();
+  Future<void> logout() async {
+    // ✅ Đăng xuất toàn diện ở cả 3 nền tảng
+    await facebookAuth.logout(); // Đăng xuất khỏi Facebook SDK
+    await remote.signOut(); // Đăng xuất khỏi Supabase (nếu có hàm này)
+    await local.clearCurrentUser(); // Xóa dữ liệu ở Hive
+  }
 
   @override
   Future<bool> resetPassword({required String emailOrPhone}) async {

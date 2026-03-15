@@ -1,14 +1,20 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
-import '../../../domain/entities/user_entity.dart';
-import '../../../domain/usecases/auth/login_usecase.dart';
-import '../../../data/datasources/local/hive_local_datasource.dart';
-import '../../../data/datasources/remote/supabase_remote_datasource.dart';
-import '../../../injection_container.dart' as di;
 import 'package:flutter/foundation.dart';
 
-// Events
+import '../../../domain/entities/user_entity.dart';
+import '../../../domain/usecases/auth/login_usecase.dart';
+import '../../../domain/usecases/auth/register_usecase.dart'; // Đảm bảo import đúng
+import '../../../domain/usecases/auth/logout_usecase.dart'; // Đảm bảo import đúng
+import '../../../data/datasources/local/hive_local_datasource.dart';
+import '../../../data/datasources/remote/supabase_remote_datasource.dart';
+import '../../../data/datasources/remote/facebook_auth_datasource.dart'; // ✅ Import DataSource FB mới
+import '../../../injection_container.dart' as di;
+
+// ==========================================
+// EVENTS
+// ==========================================
 abstract class AuthEvent extends Equatable {
   @override
   List<Object?> get props => [];
@@ -34,6 +40,7 @@ class RegisterEvent extends AuthEvent {
 class LogoutEvent extends AuthEvent {}
 
 class FacebookLoginEvent extends AuthEvent {}
+
 class SyncDataEvent extends AuthEvent {
   final String userId;
   SyncDataEvent(this.userId);
@@ -48,7 +55,9 @@ class UpdateUserEvent extends AuthEvent {
   List<Object?> get props => [user];
 }
 
-// States
+// ==========================================
+// STATES
+// ==========================================
 abstract class AuthState extends Equatable {
   @override
   List<Object?> get props => [];
@@ -74,7 +83,9 @@ class AuthError extends AuthState {
   List<Object?> get props => [message];
 }
 
+// ==========================================
 // BLoC
+// ==========================================
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final LoginUseCase loginUseCase;
   final RegisterUseCase registerUseCase;
@@ -141,7 +152,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         emit(AuthAuthenticated(localUser));
       }
 
-      // Then fetch fresh data in background to stay in sync (friends, etc)
+      // Then fetch fresh data in background to stay in sync
       try {
         final remote = di.sl<SupabaseRemoteDatasource>();
         final freshUser = await remote.getUserById(id);
@@ -187,38 +198,33 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onLogout(LogoutEvent event, Emitter<AuthState> emit) async {
     await logoutUseCase();
+
+    // Đảm bảo token FB cũng được xóa sạch khi đăng xuất
+    try {
+      final fbAuth = di.sl<FacebookAuthDataSource>();
+      await fbAuth.logout();
+    } catch (_) {}
+
     emit(AuthUnauthenticated());
   }
 
   void _onUpdateUser(UpdateUserEvent event, Emitter<AuthState> emit) {
     emit(AuthAuthenticated(event.user));
   }
+
+  // ✅ HÀM ĐÃ ĐƯỢC CẬP NHẬT CHUẨN KIẾN TRÚC
   Future<void> _onFacebookLogin(
       FacebookLoginEvent event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
-      // Step 1: Trigger Facebook Login with user_posts permission
-      final LoginResult result = await FacebookAuth.instance.login(
-        permissions: ['public_profile', 'email'],
-      );
+      // BƯỚC 1: Gọi DataSource xử lý an toàn (có xin quyền iOS và đầy đủ quyền API)
+      final fbDataSource = di.sl<FacebookAuthDataSource>();
+      final accessToken = await fbDataSource.loginWithFacebook();
 
-      if (result.status == LoginStatus.cancelled) {
-        emit(AuthUnauthenticated());
-        return;
-      }
+      // Lưu Token để file FacebookSyncService lấy bài viết/đăng bài sau này
+      local.saveFbAccessToken(accessToken.tokenString);
 
-      if (result.status != LoginStatus.success) {
-        emit(AuthError('Đăng nhập Facebook thất bại'));
-        return;
-      }
-
-      // Save FB access token for Graph API sync
-      final fbAccessToken = result.accessToken?.tokenString ?? '';
-      if (fbAccessToken.isNotEmpty) {
-        local.saveFbAccessToken(fbAccessToken);
-      }
-
-      // Step 2: Get user data from Facebook
+      // BƯỚC 2: Lấy thông tin user từ Facebook
       final userData = await FacebookAuth.instance.getUserData(
         fields: 'name,email,picture.width(200)',
       );
@@ -228,7 +234,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final String fbEmail = userData['email'] ?? '$fbId@facebook.com';
       final String? fbAvatar = userData['picture']?['data']?['url'];
 
-      // Step 3: Check if user already exists in local DB by email
+      // BƯỚC 3: Đồng bộ Local và Remote (Giữ nguyên logic của bạn)
       final allUsers = local.getAllUsers();
       UserEntity? existingUser;
       for (final u in allUsers) {
@@ -238,22 +244,22 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         }
       }
 
+      final remote = di.sl<SupabaseRemoteDatasource>();
+
       if (existingUser != null) {
-        // Update avatar from FB if needed
+        // Cập nhật user cũ
         final updated = existingUser.copyWith(
           avatarUrl: fbAvatar ?? existingUser.avatarUrl,
           name: existingUser.name.isEmpty ? fbName : existingUser.name,
         );
         await local.saveUser(updated);
         await local.setCurrentUserId(updated.id);
-        
-        // Sync to remote DB
-        final remote = di.sl<SupabaseRemoteDatasource>();
-        await remote.upsertUser(updated);
-        
+
+        await remote.upsertUser(updated); // Sync lên DB
+
         emit(AuthAuthenticated(updated));
       } else {
-        // Create new user from Facebook data
+        // Tạo user mới
         final newUser = UserEntity(
           id: 'fb_$fbId',
           name: fbName,
@@ -263,16 +269,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         );
         await local.saveUser(newUser);
         await local.setCurrentUserId(newUser.id);
-        
-        // Sync to remote DB
-        final remote = di.sl<SupabaseRemoteDatasource>();
-        await remote.upsertUser(newUser);
-        
+
+        await remote.upsertUser(newUser); // Sync lên DB
+
         emit(AuthAuthenticated(newUser));
       }
     } catch (e) {
       debugPrint('Facebook Login Error: $e');
-      emit(AuthError('Lỗi đăng nhập Facebook: ${e.toString()}'));
+      emit(AuthError(
+          'Lỗi đăng nhập Facebook: ${e.toString().replaceAll('Exception: ', '')}'));
     }
   }
 }

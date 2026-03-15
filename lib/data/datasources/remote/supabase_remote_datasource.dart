@@ -63,6 +63,42 @@ class SupabaseRemoteDatasource {
     }
   }
 
+  Future<UserEntity> signInWithFacebookToken(String token) async {
+    try {
+      final response = await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.facebook,
+        idToken: token, // Note: Supabase often expects idToken for some providers, but Facebook might use accessToken
+      );
+      
+      if (response.user == null) throw Exception('Đăng nhập Facebook thất bại.');
+
+      // Sync user to our 'users' table
+      final userData = await getUserById(response.user!.id);
+      if (userData != null) return userData;
+
+      // If new user, create profile
+      final newUser = UserEntity(
+        id: response.user!.id,
+        name: response.user!.userMetadata?['full_name'] ?? 'Facebook User',
+        email: response.user!.email ?? '',
+        avatarUrl: response.user!.userMetadata?['avatar_url'],
+        createdAt: DateTime.now(),
+      );
+
+      await _supabase.from('users').insert({
+        'id': newUser.id,
+        'name': newUser.name,
+        'email': newUser.email,
+        'avatar_url': newUser.avatarUrl,
+        'created_at': newUser.createdAt.toIso8601String(),
+      });
+
+      return newUser;
+    } on AuthException catch (e) {
+      throw Exception(_translateAuthError(e.message));
+    }
+  }
+
   String _translateAuthError(String message) {
     final msg = message.toLowerCase();
     if (msg.contains('invalid login credentials')) {
