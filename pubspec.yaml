@@ -24,7 +24,7 @@ dependencies:
   cached_network_image: ^3.3.1
   flutter_html: ^3.0.0-beta.2
   timeago: ^3.6.1
-  uuid: ^4.3.3
+  uuid: ^4.5.3
   intl: ^0.19.0
   cupertino_icons: ^1.0.6
   video_player_win: ^3.2.2

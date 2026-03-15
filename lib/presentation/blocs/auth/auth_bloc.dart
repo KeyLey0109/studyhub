@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart'; // ✅ IMPORT THƯ VIỆN UUID TẠI ĐÂY
 
 import '../../../domain/entities/user_entity.dart';
 import '../../../domain/usecases/auth/login_usecase.dart';
@@ -212,7 +213,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthAuthenticated(event.user));
   }
 
-  // ✅ HÀM ĐÃ ĐƯỢC CẬP NHẬT CHUẨN KIẾN TRÚC & FIX LỖI CACHE
+  // ✅ HÀM ĐÃ ĐƯỢC CẬP NHẬT CHUẨN KIẾN TRÚC & FIX LỖI CACHE & FIX LỖI UUID
   Future<void> _onFacebookLogin(
       FacebookLoginEvent event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
@@ -265,9 +266,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
         emit(AuthAuthenticated(updated));
       } else {
-        // Tạo user mới
+        // ✅ BƯỚC TẠO USER MỚI VỚI CHUẨN UUID ĐỂ SUPABASE KHÔNG BÁO LỖI 22P02
         final newUser = UserEntity(
-          id: 'fb_$fbId',
+          id: const Uuid().v4(), // Tự động sinh mã UUID hợp lệ (VD: 550e8400-e29b-41d4-a716-446655440000)
           name: fbName,
           email: fbEmail,
           avatarUrl: fbAvatar,
