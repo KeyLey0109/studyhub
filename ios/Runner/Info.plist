@@ -57,7 +57,8 @@
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
-            <key>CFBundleURLSchemes</key>
+            <key>CFBundleURLName</key>
+            <string>facebook-login</string> <key>CFBundleURLSchemes</key>
             <array>
                 <string>fb1478699860494618</string>
             </array>
