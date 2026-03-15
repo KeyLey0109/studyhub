@@ -5,11 +5,11 @@ import 'package:flutter/foundation.dart';
 
 import '../../../domain/entities/user_entity.dart';
 import '../../../domain/usecases/auth/login_usecase.dart';
-import '../../../domain/usecases/auth/register_usecase.dart'; // Đảm bảo import đúng
-import '../../../domain/usecases/auth/logout_usecase.dart'; // Đảm bảo import đúng
+import '../../../domain/usecases/auth/register_usecase.dart';
+import '../../../domain/usecases/auth/logout_usecase.dart';
 import '../../../data/datasources/local/hive_local_datasource.dart';
 import '../../../data/datasources/remote/supabase_remote_datasource.dart';
-import '../../../data/datasources/remote/facebook_auth_datasource.dart'; // ✅ Import DataSource FB mới
+import '../../../data/datasources/remote/facebook_auth_datasource.dart';
 import '../../../injection_container.dart' as di;
 
 // ==========================================
@@ -212,13 +212,19 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(AuthAuthenticated(event.user));
   }
 
-  // ✅ HÀM ĐÃ ĐƯỢC CẬP NHẬT CHUẨN KIẾN TRÚC
+  // ✅ HÀM ĐÃ ĐƯỢC CẬP NHẬT CHUẨN KIẾN TRÚC & FIX LỖI CACHE
   Future<void> _onFacebookLogin(
       FacebookLoginEvent event, Emitter<AuthState> emit) async {
     emit(AuthLoading());
     try {
-      // BƯỚC 1: Gọi DataSource xử lý an toàn (có xin quyền iOS và đầy đủ quyền API)
       final fbDataSource = di.sl<FacebookAuthDataSource>();
+
+      // BƯỚC 0: Đăng xuất ngầm để xóa cache lỗi (Khắc phục Error 8 FAILED)
+      try {
+        await fbDataSource.logout();
+      } catch (_) {}
+
+      // BƯỚC 1: Gọi DataSource xử lý an toàn (có xin quyền iOS)
       final accessToken = await fbDataSource.loginWithFacebook();
 
       // Lưu Token để file FacebookSyncService lấy bài viết/đăng bài sau này
@@ -234,7 +240,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final String fbEmail = userData['email'] ?? '$fbId@facebook.com';
       final String? fbAvatar = userData['picture']?['data']?['url'];
 
-      // BƯỚC 3: Đồng bộ Local và Remote (Giữ nguyên logic của bạn)
+      // BƯỚC 3: Đồng bộ Local và Remote
       final allUsers = local.getAllUsers();
       UserEntity? existingUser;
       for (final u in allUsers) {
