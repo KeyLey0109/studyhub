@@ -23,7 +23,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
   final List<String> _mediaPaths = [];
   final List<String> _mediaTypes = [];
   bool _loading = false;
-  bool _shareToFb = false;
   bool _postToTarot = false;
 
   @override
@@ -226,9 +225,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
                     // Media Preview
                     if (_mediaPaths.isNotEmpty) _buildMediaPreview(),
                     const SizedBox(height: 16),
-                    // Facebook share toggle
-                    _buildFacebookToggle(),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     // Tarot To Key Fanpage toggle
                     _buildTarotFanpageToggle(),
                   ],
@@ -344,51 +341,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
   }
 
 
-  Widget _buildFacebookToggle() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: _shareToFb ? const Color(0xFFE7F3FF) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: _shareToFb ? const Color(0xFF1877F2) : Colors.grey.shade300,
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.facebook,
-              color: _shareToFb ? const Color(0xFF1877F2) : Colors.grey,
-              size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Chia sẻ lên Facebook',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color:
-                        _shareToFb ? const Color(0xFF1877F2) : Colors.black87,
-                  ),
-                ),
-                Text(
-                  'Tự động mở chia sẻ sau khi đăng',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: _shareToFb,
-            onChanged: (v) => setState(() => _shareToFb = v),
-            activeTrackColor: const Color(0xFF1877F2),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildTarotFanpageToggle() {
     return Container(
@@ -410,7 +363,7 @@ class _CreatePostPageState extends State<CreatePostPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Đăng lên Fanpage TAROT TO KEY',
+                  'Đăng lên Fanpage DEX CODER',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
@@ -495,7 +448,6 @@ class _CreatePostPageState extends State<CreatePostPage> {
               content: _ctrl.text.trim().isEmpty ? null : _ctrl.text.trim(),
               mediaUrls: uploadedUrls,
               mediaTypes: _mediaTypes,
-              shareToFacebook: _shareToFb,
             ));
         studyHubSuccess = true;
       }

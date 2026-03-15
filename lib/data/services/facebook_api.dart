@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class FacebookApi {
-  // ✅ ĐÃ SỬA: ID chuẩn của Fanpage TAROT TO KEY
+  // ✅ ĐÃ SỬA: ID chuẩn của Fanpage DEX CODER
   static const String _pageId = '630344643494436';
 
   // ✅ Token vĩnh viễn của bạn

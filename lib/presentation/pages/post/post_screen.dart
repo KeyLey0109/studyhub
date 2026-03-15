@@ -27,7 +27,7 @@ class _PostScreenState extends State<PostScreen> {
       _controller.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✨ Đã đăng lên Fanpage TAROT TO KEY!'),
+          content: Text('✨ Đã đăng lên Fanpage DEX CODER!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -69,7 +69,7 @@ class _PostScreenState extends State<PostScreen> {
                 controller: _controller,
                 maxLines: 8,
                 decoration: const InputDecoration(
-                  hintText: 'Bạn muốn chia sẻ điều gì lên Fanpage TAROT TO KEY?',
+                  hintText: 'Bạn muốn chia sẻ điều gì lên Fanpage DEX CODER?',
                   hintStyle: TextStyle(color: Colors.grey),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.all(16),

@@ -3,9 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../domain/entities/post_entity.dart';
 import '../../../domain/repositories/post_repository.dart';
-import '../../../data/services/facebook_sync_service.dart';
-import '../../../data/datasources/local/hive_local_datasource.dart';
-import '../../../injection_container.dart' as di;
 
 // Events
 abstract class PostEvent extends Equatable {
@@ -22,7 +19,6 @@ class CreatePostEvent extends PostEvent {
   final String authorId, authorName;
   final String? authorAvatar, content;
   final List<String> mediaUrls, mediaTypes;
-  final bool shareToFacebook;
   CreatePostEvent({
     required this.authorId,
     required this.authorName,
@@ -30,7 +26,6 @@ class CreatePostEvent extends PostEvent {
     this.content,
     this.mediaUrls = const [],
     this.mediaTypes = const [],
-    this.shareToFacebook = false,
   });
 }
 
@@ -80,10 +75,7 @@ class DeletePostEvent extends PostEvent {
   List<Object?> get props => [postId];
 }
 
-class SyncFacebookPostsEvent extends PostEvent {
-  final String userId;
-  SyncFacebookPostsEvent({required this.userId});
-}
+
 // States
 abstract class PostState extends Equatable {
   @override
@@ -109,8 +101,7 @@ class PostError extends PostState {
   PostError(this.message);
 }
 
-// Constants for Facebook Page integration
-const String _fbPageId = '2024756361440176';
+
 // BLoC
 class PostBloc extends Bloc<PostEvent, PostState> {
   final PostRepository repository;
@@ -125,7 +116,6 @@ class PostBloc extends Bloc<PostEvent, PostState> {
     on<SearchPostsEvent>(_onSearch);
     on<SharePostEvent>(_onShare);
     on<DeletePostEvent>(_onDelete);
-    on<SyncFacebookPostsEvent>(_onSyncFacebook);
   }
 
   Future<void> _onLoad(LoadPostsEvent event, Emitter<PostState> emit) async {
@@ -154,33 +144,6 @@ class PostBloc extends Bloc<PostEvent, PostState> {
         mediaUrls: event.mediaUrls,
         mediaTypes: event.mediaTypes,
       );
-      // Auto-share to Facebook if requested
-      if (event.shareToFacebook) {
-        try {
-          final local = di.sl<HiveLocalDatasource>();
-          final fbToken = local.getFbAccessToken();
-          if (fbToken != null && fbToken.isNotEmpty) {
-            final fbService = FacebookSyncService(userAccessToken: fbToken);
-            
-            // Check token validity before publishing
-            if (await fbService.checkTokenValidity()) {
-              String? link;
-              if (event.mediaUrls.isNotEmpty) {
-                link = event.mediaUrls.first;
-              }
-              await fbService.publishPost(
-                message: event.content,
-                link: link,
-                pageId: _fbPageId,
-              );
-            } else {
-              debugPrint('PostBloc: Facebook token is invalid or expired.');
-            }
-          }
-        } catch (fbErr) {
-          debugPrint('PostBloc Facebook auto-share error: $fbErr');
-        }
-      }
       final current =
           state is PostLoaded ? (state as PostLoaded).posts : <PostEntity>[];
       emit(PostLoaded(posts: [post, ...current]));
@@ -266,49 +229,6 @@ class PostBloc extends Bloc<PostEvent, PostState> {
           .map((p) => p.id == updated.id ? updated : p)
           .toList();
       emit((state as PostLoaded).copyWith(posts: posts));
-    }
-  }
-  Future<void> _onSyncFacebook(
-      SyncFacebookPostsEvent event, Emitter<PostState> emit) async {
-    try {
-      final local = di.sl<HiveLocalDatasource>();
-      final fbToken = local.getFbAccessToken();
-
-      if (fbToken == null || fbToken.isEmpty) {
-        debugPrint(
-            'No Facebook access token found. Please login with Facebook first.');
-        return;
-      }
-
-      final user = local.getUserById(event.userId);
-      if (user == null) return;
-
-      final syncService = FacebookSyncService(userAccessToken: fbToken);
-      
-      // Check token validity before syncing
-      if (!await syncService.checkTokenValidity()) {
-        debugPrint('❌ Facebook token invalid. Please re-login.');
-        emit(PostError('Phiên đăng nhập Facebook hết hạn. Vui lòng đăng nhập lại.'));
-        return;
-      }
-
-      final fbPosts = await syncService.fetchFacebookPosts(
-        fbUserId: event.userId.replaceFirst('fb_', ''),
-        fbUserName: user.name,
-        fbUserAvatar: user.avatarUrl,
-      );
-
-      // Save FB posts to local and merge into current feed
-      for (final post in fbPosts) {
-        await local.savePost(post);
-      }
-
-      // Reload all posts to include FB synced ones
-      _page = 1;
-      final allPosts = await repository.getPosts(page: 1);
-      emit(PostLoaded(posts: allPosts, hasMore: allPosts.length >= 10));
-    } catch (e) {
-      debugPrint('Facebook Sync Error: $e');
     }
   }
 }
